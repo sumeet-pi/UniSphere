@@ -61,15 +61,25 @@ export const clubs = [
   },
   {
     id: 'c_pending',
+    referenceId: 'REQ-2026-MGT-4821',
     name: 'FinTech & Blockchain Society',
     category: 'Entrepreneurship',
     description: 'Pioneering decentralized applications, algorithmic trading, and student financial literacy.',
+    about_mission: 'To provide students with institutional guidance, industry hackathons, and research mentorship in blockchain technology, algorithmic portfolio construction, and financial systems.',
     memberCount: 0,
     facultyHead: 'Dr. Neha Verma',
+    facultyAdvisor: 'Dr. Neha Verma',
+    coordinatorTeacher: 'Dr. Neha Verma',
+    hod: 'Dr. V. K. Mathur',
+    email: 'fintech.society@college.edu',
+    phone: '+91 98101 23456',
+    proposedBudget: '₹25,000 (Department Co-Sponsorship)',
+    expectedMembers: '80+ Enrolled Students',
+    meetingRoom: 'Management Block, Seminar Room 102',
     upcomingEventsCount: 0,
     approvalStatus: 'requested', // 'requested' | 'approved' | 'rejected'
     status: 'Requested',
-    submittedAt: '2026-10-16',
+    submittedAt: 'Oct 16, 2026',
     clubCode: 'FINTECH-2026',
     department: 'Management & Computer Applications',
     logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=FinTech&backgroundColor=0284c7,18181b',
@@ -77,18 +87,52 @@ export const clubs = [
     coreTeam: []
   },
   {
+    id: 'c_pending_2',
+    referenceId: 'REQ-2026-MECH-7104',
+    name: 'Aeromodelling & Drone Tech Club',
+    category: 'Engineering',
+    description: 'Designing autonomous UAVs, quadcopters, and fixed-wing gliders for national engineering design competitions.',
+    about_mission: 'Dedicated to hands-on avionics, aerodynamic testing, and autonomous drone navigation for campus research and competition.',
+    memberCount: 0,
+    facultyHead: 'Prof. Anirudh Kulkarni',
+    facultyAdvisor: 'Prof. Anirudh Kulkarni',
+    coordinatorTeacher: 'Prof. Anirudh Kulkarni',
+    hod: 'Dr. Rajesh Pillai',
+    email: 'drones.aero@college.edu',
+    phone: '+91 98765 88990',
+    proposedBudget: '₹40,000 (Fabrication & Component Sourcing)',
+    expectedMembers: '60+ Enrolled Students',
+    meetingRoom: 'Aerodynamics Lab, Central Workshop',
+    upcomingEventsCount: 0,
+    approvalStatus: 'requested',
+    status: 'Requested',
+    submittedAt: 'Oct 17, 2026',
+    clubCode: 'AERO-2026',
+    department: 'Mechanical & Aerospace Engineering',
+    logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=Aero&backgroundColor=0369a1,18181b',
+    banner: 'https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&q=80&w=1000',
+    coreTeam: []
+  },
+  {
     id: 'c_rejected',
+    referenceId: 'REQ-2026-STU-3309',
     name: 'Campus Gaming & Esports Union',
     category: 'Arts & Culture',
     description: 'Competitive collegiate esports tournaments, LAN parties, and casual gaming community.',
+    about_mission: 'To unite video gaming enthusiasts and organize intra-college tournament streams.',
     memberCount: 0,
     facultyHead: 'Prof. S. K. Gupta',
+    facultyAdvisor: 'Prof. S. K. Gupta',
+    coordinatorTeacher: 'Prof. S. K. Gupta',
+    hod: 'Dr. Rajesh Pillai',
+    email: 'esports.union@college.edu',
+    phone: '+91 98321 00099',
     upcomingEventsCount: 0,
     approvalStatus: 'rejected',
     rejectionReason: 'Faculty advisor endorsement letter is missing, and campus policy restricts unaccredited video game societies.',
     status: 'Rejected',
-    submittedAt: '2026-10-10',
-    rejectedAt: '2026-10-14',
+    submittedAt: 'Oct 10, 2026',
+    rejectedAt: 'Oct 14, 2026',
     clubCode: 'ESPORTS-2026',
     department: 'Student Affairs',
     logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=Gaming&backgroundColor=dc2626,18181b',
@@ -98,47 +142,58 @@ export const clubs = [
 ];
 
 export const getStoredClubs = (approvedOnly = true) => {
-  const allClubs = clubs.map(club => {
-    try {
-      const saved = localStorage.getItem(`mockClubProfile_${club.id}`);
-      const savedApproval = localStorage.getItem(`mockClubApproval_${club.id}`);
-      let approvalStatus = club.approvalStatus;
-      let rejectionReason = club.rejectionReason;
-      
-      if (savedApproval) {
+  const clubMap = new Map();
+
+  // 1. Load base clubs
+  clubs.forEach(c => clubMap.set(c.id, { ...c }));
+
+  // 2. Discover dynamically registered clubs from localStorage (from Signup)
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('mockClubProfile_')) {
+        const clubId = key.replace('mockClubProfile_', '');
         try {
-          const parsedApproval = JSON.parse(savedApproval);
-          approvalStatus = parsedApproval.approvalStatus || approvalStatus;
-          rejectionReason = parsedApproval.rejectionReason || rejectionReason;
+          const parsed = JSON.parse(localStorage.getItem(key));
+          const existing = clubMap.get(clubId) || {
+            id: clubId,
+            memberCount: 0,
+            upcomingEventsCount: 0,
+            coreTeam: [],
+            logo: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(parsed.name || clubId)}&backgroundColor=0284c7,18181b`,
+            banner: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=1000'
+          };
+          clubMap.set(clubId, { ...existing, ...parsed });
         } catch (e) {
           console.error(e);
         }
       }
+    }
+  } catch (err) {
+    console.error('Error reading localStorage for clubs:', err);
+  }
 
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return {
-          ...club,
-          ...parsed,
-          approvalStatus,
-          rejectionReason,
-          facultyAdvisor: parsed.facultyAdvisor || parsed.coordinatorTeacher || club.facultyHead || 'Dr. Sharma',
-          clubCode: parsed.clubCode || parsed.inviteCode || (club.id === 'c1' ? 'BW-CSE-2026' : `CLUB-${club.id.toUpperCase()}`),
-          department: parsed.department || club.department || (club.category === 'Computer Science' ? 'Computer Science & Engineering' : 'Engineering & Applied Sciences')
-        };
+  // 3. Apply persistent approval status overrides and fallbacks
+  const allClubs = Array.from(clubMap.values()).map(club => {
+    try {
+      const savedApproval = localStorage.getItem(`mockClubApproval_${club.id}`);
+      if (savedApproval) {
+        const parsedApproval = JSON.parse(savedApproval);
+        club.approvalStatus = parsedApproval.approvalStatus || club.approvalStatus;
+        if (parsedApproval.rejectionReason !== undefined) {
+          club.rejectionReason = parsedApproval.rejectionReason;
+        }
       }
-      return {
-        ...club,
-        approvalStatus,
-        rejectionReason,
-        facultyAdvisor: club.facultyHead || 'Faculty In-Charge',
-        clubCode: club.id === 'c1' ? 'BW-CSE-2026' : `CLUB-${club.id.toUpperCase()}`,
-        department: club.department || (club.category === 'Computer Science' ? 'Computer Science & Engineering' : 'Engineering & Applied Sciences')
-      };
     } catch (e) {
       console.error(e);
     }
-    return club;
+    return {
+      ...club,
+      facultyAdvisor: club.facultyAdvisor || club.coordinatorTeacher || club.facultyHead || 'Dr. Sharma',
+      clubCode: club.clubCode || (club.id === 'c1' ? 'BW-CSE-2026' : `CLUB-${club.id.toUpperCase()}`),
+      department: club.department || (club.category === 'Computer Science' ? 'Computer Science & Engineering' : 'Engineering & Applied Sciences'),
+      approvalStatus: club.approvalStatus || 'approved'
+    };
   });
 
   if (approvedOnly) {
@@ -727,6 +782,21 @@ export const approveClub = (clubId) => {
   try {
     const payload = { approvalStatus: 'approved', rejectionReason: null };
     localStorage.setItem(`mockClubApproval_${clubId}`, JSON.stringify(payload));
+    
+    // Also update profile if exists
+    const profileRaw = localStorage.getItem(`mockClubProfile_${clubId}`);
+    if (profileRaw) {
+      try {
+        const parsed = JSON.parse(profileRaw);
+        parsed.approvalStatus = 'approved';
+        parsed.status = 'ACTIVE';
+        delete parsed.rejectionReason;
+        localStorage.setItem(`mockClubProfile_${clubId}`, JSON.stringify(parsed));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    window.dispatchEvent(new Event('storage'));
     return payload;
   } catch (e) {
     console.error(e);
@@ -740,6 +810,20 @@ export const rejectClub = (clubId, reason) => {
       rejectionReason: reason || 'Application does not meet institutional compliance standards.' 
     };
     localStorage.setItem(`mockClubApproval_${clubId}`, JSON.stringify(payload));
+
+    const profileRaw = localStorage.getItem(`mockClubProfile_${clubId}`);
+    if (profileRaw) {
+      try {
+        const parsed = JSON.parse(profileRaw);
+        parsed.approvalStatus = 'rejected';
+        parsed.rejectionReason = payload.rejectionReason;
+        parsed.status = 'Rejected';
+        localStorage.setItem(`mockClubProfile_${clubId}`, JSON.stringify(parsed));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    window.dispatchEvent(new Event('storage'));
     return payload;
   } catch (e) {
     console.error(e);

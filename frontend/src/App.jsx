@@ -29,6 +29,9 @@ import { Tasks } from './pages/club/Tasks';
 import { Announcements } from './pages/club/Announcements';
 import { Analytics } from './pages/club/Analytics';
 
+// Separate Protected Admin Governance Console
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+
 function PlaceholderPage({ title }) {
   return (
     <div className="flex items-center justify-center h-[60vh]">
@@ -84,6 +87,10 @@ function App() {
             <Route path="/club-student" element={<Navigate to="/club-dashboard" replace />} />
             <Route path="/club-student/*" element={<Navigate to="/club-dashboard" replace />} />
           </Route>
+
+          {/* Completely Separate Protected Admin Governance Console */}
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/*" element={<AdminDashboard />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
