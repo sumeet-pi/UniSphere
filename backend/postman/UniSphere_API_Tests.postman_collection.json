@@ -1,0 +1,669 @@
+{
+  "info": {
+    "name": "UniSphere API Tests",
+    "description": "Postman collection for UniSphere authentication, registration (separate student and club coordinator endpoints), role-based access, and health endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "student_signup_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "coordinator_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "club_name",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "student_access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "coordinator_access_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /api/health \u2014 API Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "description": "Checks that the UniSphere API service is running and healthy."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has status field', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('status');",
+                  "});",
+                  "",
+                  "pm.test('Status is healthy', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('healthy');",
+                  "});",
+                  "",
+                  "pm.test('Service name is unisphere-api', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.service).to.eql('unisphere-api');",
+                  "});",
+                  "",
+                  "pm.test('Response time is under 2000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/health/db \u2014 Database Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health/db",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health",
+                "db"
+              ]
+            },
+            "description": "Checks that the database connection is alive."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test('Response has status field', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('status');",
+                  "});",
+                  "",
+                  "pm.test('Database status is healthy', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('healthy');",
+                  "});",
+                  "",
+                  "pm.test('Database field is connected', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.database).to.eql('connected');",
+                  "});",
+                  "",
+                  "pm.test('Response time is under 3000ms', function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "POST /api/auth/register/student \u2014 Student Registration (Valid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Vikram Singh\",\n  \"email\": \"{{student_signup_email}}\",\n  \"password\": \"Password@2026\",\n  \"phone\": \"+91 98765 43210\",\n  \"course\": \"B.Tech\",\n  \"branch\": \"Computer Science & Engineering\",\n  \"semester\": \"1st Sem\",\n  \"class_roll_no\": \"CS-24\",\n  \"university_roll_no\": \"2401020088\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register/student",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "student"
+              ]
+            },
+            "description": "Registers a new student account with dedicated student endpoint."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var timestamp = Date.now();",
+                  "var uniqueEmail = \"student_\" + timestamp + \"@college.edu\";",
+                  "pm.collectionVariables.set(\"student_signup_email\", uniqueEmail);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Contains access_token\", function () { var json = pm.response.json(); pm.expect(json).to.have.property(\"access_token\"); });",
+                  "pm.test(\"User role is General Student\", function () { var user = pm.response.json().user; pm.expect(user.role).to.eql(\"General Student\"); pm.expect(user.status).to.eql(\"active\"); });",
+                  "var json = pm.response.json(); if (json.access_token) { pm.collectionVariables.set(\"student_access_token\", json.access_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/register/coordinator \u2014 Coordinator Registration (Valid)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"club_name\": \"{{club_name}}\",\n  \"department\": \"Computer Science & Engineering\",\n  \"category\": \"Technical & Coding\",\n  \"hod\": \"Dr. R. K. Singhal\",\n  \"faculty_advisor\": \"Dr. Neha Verma\",\n  \"email\": \"{{coordinator_email}}\",\n  \"phone\": \"+91 98101 23456\",\n  \"description\": \"Autonomous Robotics and Intelligent Systems Club\",\n  \"password\": \"ClubAdmin#2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register/coordinator",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "coordinator"
+              ]
+            },
+            "description": "Registers a new club coordinator and club proposal in pending authority approval state."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var timestamp = Date.now();",
+                  "var uniqueEmail = \"coord_\" + timestamp + \"@college.edu\";",
+                  "var uniqueClub = \"Club \" + timestamp;",
+                  "pm.collectionVariables.set(\"coordinator_email\", uniqueEmail);",
+                  "pm.collectionVariables.set(\"club_name\", uniqueClub);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Status is pending_approval\", function () { pm.expect(json.status).to.eql(\"pending_approval\"); });",
+                  "pm.test(\"Has reference_id\", function () { pm.expect(json).to.have.property(\"reference_id\"); pm.expect(json.reference_id).to.include(\"REQ-2026-\"); });",
+                  "pm.test(\"Club and email match payload\", function () { pm.expect(json.email).to.eql(pm.collectionVariables.get(\"coordinator_email\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/register/student \u2014 Invalid Student Registration (400/422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Vikram\",\n  \"email\": \"invalid-pass@college.edu\",\n  \"password\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register/student",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "student"
+              ]
+            },
+            "description": "Validation failure for weak student password."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 or 422\", function () { pm.expect([400, 422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/register/coordinator \u2014 Invalid Coordinator Registration (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"missingfields@college.edu\",\n  \"password\": \"ClubAdmin#2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register/coordinator",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "coordinator"
+              ]
+            },
+            "description": "Validation failure when mandatory club coordinator fields are missing."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422 Unprocessable Entity\", function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/register/student \u2014 Duplicate Email Registration (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Duplicate Vikram\",\n  \"email\": \"{{student_signup_email}}\",\n  \"password\": \"Password@2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/register/student",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "student"
+              ]
+            },
+            "description": "Attempts to register with an already existing student email. Expects 409 Conflict."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409 Conflict\", function () { pm.response.to.have.status(409); });",
+                  "pm.test(\"Error code is EMAIL_EXISTS\", function () { var json = pm.response.json(); pm.expect(json.detail.code).to.eql(\"EMAIL_EXISTS\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/login \u2014 Successful Student Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{student_signup_email}}\",\n  \"password\": \"Password@2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login with student credentials returns token and General Student role."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test(\"User role is General Student\", function () { pm.expect(json.user.role).to.eql(\"General Student\"); });",
+                  "if (json.access_token) { pm.collectionVariables.set(\"student_access_token\", json.access_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/login \u2014 Coordinator Login Pending Approval (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{coordinator_email}}\",\n  \"password\": \"ClubAdmin#2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Attempts login for coordinator account that is still pending authority review. Expects 403 Forbidden."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () { pm.response.to.have.status(403); });",
+                  "pm.test(\"Error code is ACCOUNT_PENDING_APPROVAL\", function () { var json = pm.response.json(); pm.expect(json.detail.code).to.eql(\"ACCOUNT_PENDING_APPROVAL\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/login \u2014 Coordinator Login After Approval",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sharma.cse@college.edu\",\n  \"password\": \"ClubAdmin#2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login with approved coordinator demo credentials (Dr. Sharma)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "pm.test(\"User role is Club Coordinator\", function () { pm.expect(json.user.role).to.eql(\"Club Coordinator\"); });",
+                  "pm.test(\"Managed clubId is populated\", function () { pm.expect(json.user.clubId).to.eql(\"c1\"); });",
+                  "if (json.access_token) { pm.collectionVariables.set(\"coordinator_access_token\", json.access_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/auth/login \u2014 Incorrect Password (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sharma.cse@college.edu\",\n  \"password\": \"WrongPass#999\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Attempts login with valid email but incorrect password. Expects 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Error code is INVALID_CREDENTIALS\", function () { var json = pm.response.json(); pm.expect(json.detail.code).to.eql(\"INVALID_CREDENTIALS\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/auth/me \u2014 Student Role Verification",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{student_access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Verifies student role on protected /me route."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "var user = pm.response.json();",
+                  "pm.test(\"Role is General Student\", function () { pm.expect(user.role).to.eql(\"General Student\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/auth/me \u2014 Coordinator Role Verification",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinator_access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Verifies coordinator role and club affiliations on protected /me route."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () { pm.response.to.have.status(200); });",
+                  "var user = pm.response.json();",
+                  "pm.test(\"Role is Club Coordinator\", function () { pm.expect(user.role).to.eql(\"Club Coordinator\"); });",
+                  "pm.test(\"User has clubId\", function () { pm.expect(user.clubId).to.eql(\"c1\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
