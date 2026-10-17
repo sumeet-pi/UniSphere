@@ -53,6 +53,32 @@ export const clubs = [
   }
 ];
 
+export const getStoredClubs = () => {
+  return clubs.map(club => {
+    try {
+      const saved = localStorage.getItem(`mockClubProfile_${club.id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...club,
+          ...parsed,
+          facultyAdvisor: parsed.facultyAdvisor || parsed.coordinatorTeacher || club.facultyHead || 'Dr. Sharma',
+          clubCode: parsed.clubCode || parsed.inviteCode || (club.id === 'c1' ? 'BW-CSE-2026' : `CLUB-${club.id.toUpperCase()}`),
+          department: parsed.department || club.department || (club.category === 'Computer Science' ? 'Computer Science & Engineering' : 'Engineering & Applied Sciences')
+        };
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return {
+      ...club,
+      facultyAdvisor: club.facultyHead || 'Faculty In-Charge',
+      clubCode: club.id === 'c1' ? 'BW-CSE-2026' : `CLUB-${club.id.toUpperCase()}`,
+      department: club.department || (club.category === 'Computer Science' ? 'Computer Science & Engineering' : 'Engineering & Applied Sciences')
+    };
+  });
+};
+
 export const events = [
   {
     id: 'e1',
@@ -497,7 +523,26 @@ export const mockUsers = {
   general_student: {
     id: 'u5',
     name: 'Vikram Singh',
-    role: 'General Student'
+    role: 'General Student',
+    email: 'vikram.singh@college.edu',
+    phone: '+91 98765 43210',
+    course: 'B.Tech',
+    branch: 'Computer Science & Engineering',
+    sem: '4th Sem',
+    year: '2nd Year',
+    classRollNo: 'CS24089',
+    universityRollNo: '2400100345',
+    department: 'Computer Science & Engineering',
+    admissionYear: '2024',
+    graduatingYear: '2028',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+    bio: '2nd Year Computer Science undergraduate passionate about full-stack web engineering, competitive programming, and campus tech communities.',
+    skills: ['JavaScript', 'React', 'Node.js', 'Python', 'Tailwind CSS', 'Git & GitHub', 'Data Structures'],
+    interests: ['Hackathons', 'Web Development', 'Robotics', 'Public Speaking', 'System Design'],
+    linkedin: 'https://linkedin.com/in/vikram-singh-dev',
+    github: 'https://github.com/vikram-singh',
+    bloodGroup: 'B+',
+    emergencyContact: '+91 98111 22233'
   },
   // Backward compatibility aliases
   teacher: {
@@ -516,6 +561,19 @@ export const mockUsers = {
     managedClubId: 'c1',
     clubRole: 'Student Coordinator'
   }
+};
+
+// Student Profile storage helper
+export const getStoredStudentProfile = () => {
+  try {
+    const saved = localStorage.getItem('mockStudentProfile');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Error reading mockStudentProfile:', e);
+  }
+  return mockUsers.general_student;
 };
 
 // Event lifecycle storage helpers

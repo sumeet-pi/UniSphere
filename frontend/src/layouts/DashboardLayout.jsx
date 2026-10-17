@@ -14,7 +14,8 @@ import {
   Compass,
   CheckSquare,
   Megaphone,
-  BarChart3
+  BarChart3,
+  User
 } from 'lucide-react';
 
 export function DashboardLayout() {
@@ -39,6 +40,7 @@ export function DashboardLayout() {
   if (user.role === 'General Student') {
     links = [
       { name: 'Dashboard', href: '/student', icon: LayoutDashboard },
+      { name: 'My Profile', href: '/student/profile', icon: User },
       { name: 'Explore Clubs', href: '/student/explore', icon: Compass },
       { name: 'Events', href: '/student/events', icon: Calendar },
       { name: 'My Registrations', href: '/student/registrations', icon: CheckSquare },
@@ -125,15 +127,19 @@ export function DashboardLayout() {
 
         {/* Sidebar Footer with User Details */}
         <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold flex-shrink-0">
+          <Link 
+            to={user.role === 'General Student' ? '/student/profile' : '/club-dashboard/club'} 
+            className="flex items-center gap-3 mb-3 p-1.5 -mx-1.5 rounded-xl hover:bg-gray-100 transition-colors group cursor-pointer"
+            title="View Profile"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
               {user.name.charAt(0)}
             </div>
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
+            <div className="overflow-hidden min-w-0">
+              <p className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{user.name}</p>
               <p className="text-xs text-gray-500 truncate">{user.clubRole || user.role}</p>
             </div>
-          </div>
+          </Link>
           <button 
             onClick={handleLogout}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"

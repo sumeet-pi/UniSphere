@@ -17,6 +17,7 @@ import { Signup } from './pages/public/Signup';
 
 import { StudentDashboard } from './pages/student/StudentDashboard';
 import { MyRegistrations } from './pages/student/MyRegistrations';
+import { StudentProfile } from './pages/student/StudentProfile';
 
 // Unified Club Coordinator Pages
 import { ClubDashboard } from './pages/club/ClubDashboard';
@@ -59,6 +60,7 @@ function App() {
           <Route element={<DashboardLayout />}>
             {/* General Student */}
             <Route path="/student" element={<StudentDashboard />} />
+            <Route path="/student/profile" element={<StudentProfile />} />
             <Route path="/student/registrations" element={<MyRegistrations />} />
             <Route path="/student/explore" element={<ExploreClubs />} />
             <Route path="/student/explore/:id" element={<ClubProfile />} />
