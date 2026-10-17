@@ -4,7 +4,10 @@ import {
   getStoredEvents, 
   getStoredClubs, 
   getStoredAnnouncements, 
-  getStoredStudentProfile 
+  getStoredStudentProfile,
+  searchCampusStudents,
+  isStudentClubMember,
+  isUserClubMember
 } from '../../data/mockData';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -18,6 +21,8 @@ import {
   ArrowRight, 
   Megaphone, 
   Users, 
+  UserCheck,
+  Shield,
   Sparkles,
   ExternalLink, 
   ShieldCheck, 
@@ -45,7 +50,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 
 export function StudentDashboard() {
-  const { user, registeredEventIds, registerForEvent, unregisterFromEvent, joinedClubIds } = useAuth();
+  const { user, registeredEventIds, registerForEvent, unregisterFromEvent, joinedClubIds = [] } = useAuth();
   const navigate = useNavigate();
 
   // Dynamic student profile from storage
@@ -103,6 +108,13 @@ export function StudentDashboard() {
   const [toastMessage, setToastMessage] = useState(null);
   const [copiedNoticeId, setCopiedNoticeId] = useState(null);
 
+  // Team Registration state & Student search
+  const [rsvpType, setRsvpType] = useState('individual'); // 'individual' | 'team'
+  const [teamName, setTeamName] = useState('');
+  const [teammateSearch, setTeammateSearch] = useState('');
+  const [showTeammateDropdown, setShowTeammateDropdown] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+
   // Filtered event buckets
   const registeredEvents = allEvents.filter(e => registeredEventIds.includes(e.id) && e.status !== 'Past');
   const pastEvents = allEvents.filter(e => e.status === 'Past');
@@ -141,12 +153,50 @@ export function StudentDashboard() {
     }, 3000);
   };
 
+  const handleOpenRsvpModal = (event) => {
+    setRsvpModalEvent(event);
+    setRsvpType('individual');
+    setTeamName('');
+    setTeammateSearch('');
+    setTeamMembers([]);
+    setShowTeammateDropdown(false);
+  };
+
+  const handleAddTeammate = (student) => {
+    if (teamMembers.length >= 3) {
+      alert('Maximum team size is 4 members (1 Team Lead + 3 Teammates).');
+      return;
+    }
+    const myId = user?.classRollNo || user?.collegeId || profile.classRollNo;
+    if (student.collegeId === myId || student.classRollNo === myId) {
+      alert('You are already the Team Lead!');
+      return;
+    }
+    if (teamMembers.some(m => m.collegeId === student.collegeId)) {
+      return;
+    }
+    setTeamMembers(prev => [...prev, student]);
+    setTeammateSearch('');
+    setShowTeammateDropdown(false);
+  };
+
+  const handleRemoveTeammate = (collegeId) => {
+    setTeamMembers(prev => prev.filter(m => m.collegeId !== collegeId));
+  };
+
   const handleConfirmRsvp = () => {
     if (!rsvpModalEvent) return;
+    if (rsvpType === 'team' && !teamName.trim()) {
+      alert('Please enter a team name before confirming.');
+      return;
+    }
     registerForEvent(rsvpModalEvent.id);
     const eventName = rsvpModalEvent.title;
+    const msg = rsvpType === 'team'
+      ? `Team "${teamName.trim()}" (${teamMembers.length + 1} members) confirmed for "${eventName}"!`
+      : `Seat confirmed for "${eventName}"! Entry pass issued.`;
     setRsvpModalEvent(null);
-    setToastMessage(`Seat confirmed for "${eventName}"! Entry pass issued.`);
+    setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
 
@@ -555,10 +605,23 @@ export function StudentDashboard() {
                               >
                                 <Check className="w-3.5 h-3.5" /> View Ticket Pass
                               </Button>
+                            ) : isUserClubMember(event.clubId, joinedClubIds, user) ? (
+                              <div className="relative group w-full">
+                                <Button 
+                                  size="sm" 
+                                  disabled
+                                  className="w-full text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200 cursor-not-allowed gap-1.5"
+                                >
+                                  <Shield className="w-3.5 h-3.5 text-amber-600" /> Club Member (Cannot RSVP)
+                                </Button>
+                                <div className="hidden group-hover:block absolute bottom-full mb-1 left-0 right-0 z-30 p-2 bg-gray-900 text-white text-[11px] rounded-xl shadow-xl text-center">
+                                  You are an official member of {event.clubName}. Club members coordinate events and cannot register as participants.
+                                </div>
+                              </div>
                             ) : (event.stage === 'open' || event.status === 'Open') ? (
                               <Button 
                                 size="sm" 
-                                onClick={() => setRsvpModalEvent(event)}
+                                onClick={() => handleOpenRsvpModal(event)}
                                 className="w-full text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
                               >
                                 Quick RSVP
@@ -1195,20 +1258,23 @@ export function StudentDashboard() {
       )}
 
       {/* MODAL 3: QUICK RSVP MODAL */}
-      {rsvpModalEvent && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
-                <h3 className="font-bold text-base text-gray-900">Confirm Event RSVP</h3>
-              </div>
-              <button onClick={() => setRsvpModalEvent(null)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {rsvpModalEvent && (() => {
+        const isClubMemberOfThisEvent = isUserClubMember(rsvpModalEvent.clubId, joinedClubIds, user);
 
-            <div className="space-y-3">
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  <h3 className="font-bold text-base text-gray-900">Event RSVP & Registration</h3>
+                </div>
+                <button onClick={() => setRsvpModalEvent(null)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Event Brief Header */}
               <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1">
                 <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">{rsvpModalEvent.clubName}</span>
                 <h4 className="font-bold text-sm text-gray-900">{rsvpModalEvent.title}</h4>
@@ -1218,57 +1284,251 @@ export function StudentDashboard() {
                 </div>
               </div>
 
-              {/* Student Credentials Summary */}
-              <div className="space-y-2 text-xs bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <p className="font-bold text-gray-700">Student Attendee Credentials:</p>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Name:</span>
-                  <span className="font-semibold text-gray-800">{profile.name}</span>
+              {/* CLUB MEMBERSHIP RESTRICTION CHECK */}
+              {isClubMemberOfThisEvent ? (
+                <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl space-y-2 text-amber-950">
+                  <div className="flex items-center gap-2 font-bold text-sm text-amber-900">
+                    <Shield className="w-5 h-5 text-amber-600" />
+                    <span>Organizing Club Member Restriction</span>
+                  </div>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    You are registered as an official member of <strong>{rsvpModalEvent.clubName}</strong>.
+                    Per university regulations, club members cannot register as participants for events organized by their own club.
+                  </p>
+                  <div className="pt-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setRsvpModalEvent(null)} 
+                      className="w-full text-xs font-semibold"
+                    >
+                      Close
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Class Roll No:</span>
-                  <span className="font-mono font-bold text-gray-800">{profile.classRollNo}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Univ Roll No:</span>
-                  <span className="font-mono font-bold text-gray-800">{profile.universityRollNo}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Branch & Semester:</span>
-                  <span className="font-semibold text-gray-800">{profile.course} {profile.sem}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Email:</span>
-                  <span className="font-mono text-gray-800">{profile.email}</span>
-                </div>
-              </div>
+              ) : (
+                <>
+                  {/* Mode Selector */}
+                  <div className="flex bg-gray-100 p-1 rounded-xl text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setRsvpType('individual')}
+                      className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                        rsvpType === 'individual' 
+                          ? 'bg-white text-blue-700 shadow-xs font-bold' 
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <UserCheck className="w-3.5 h-3.5" /> Individual Pass
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRsvpType('team')}
+                      className={`flex-1 py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                        rsvpType === 'team' 
+                          ? 'bg-white text-blue-700 shadow-xs font-bold' 
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5" /> Team Registration
+                    </button>
+                  </div>
 
-              <div className="p-2.5 rounded-lg bg-emerald-50 text-[11px] text-emerald-800 border border-emerald-200 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                <span>Seats remaining: {rsvpModalEvent.capacity - (rsvpModalEvent.registeredCount || 0)}. Pass will be issued instantly.</span>
-              </div>
-            </div>
+                  {rsvpType === 'individual' ? (
+                    /* Student Credentials Summary */
+                    <div className="space-y-2 text-xs bg-gray-50 p-3 rounded-xl border border-gray-200">
+                      <p className="font-bold text-gray-700">Student Attendee Credentials:</p>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Name:</span>
+                        <span className="font-semibold text-gray-800">{profile.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Class Roll No:</span>
+                        <span className="font-mono font-bold text-gray-800">{profile.classRollNo}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Univ Roll No:</span>
+                        <span className="font-mono font-bold text-gray-800">{profile.universityRollNo}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Branch & Semester:</span>
+                        <span className="font-semibold text-gray-800">{profile.course} {profile.sem}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Email:</span>
+                        <span className="font-mono text-gray-800">{profile.email}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Team Registration with Live Student Search beneath the input */
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                          Team Name
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Code Crafters, Algorand Pioneers..."
+                          value={teamName}
+                          onChange={e => setTeamName(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          required
+                        />
+                      </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setRsvpModalEvent(null)}
-                className="flex-1 text-xs font-semibold"
-              >
-                Back
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={handleConfirmRsvp}
-                className="flex-1 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
-              >
-                Confirm My RSVP
-              </Button>
+                      {/* Live Student Search with Dropdown beneath the input */}
+                      <div className="relative">
+                        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                          Add Teammates (Search Campus Directory)
+                        </label>
+                        <div className="relative">
+                          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Type student name or roll no (e.g. Ayush, CS24012)..."
+                            value={teammateSearch}
+                            onChange={e => {
+                              setTeammateSearch(e.target.value);
+                              setShowTeammateDropdown(true);
+                            }}
+                            onFocus={() => {
+                              if (teammateSearch.trim().length > 0) setShowTeammateDropdown(true);
+                            }}
+                            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          />
+                        </div>
+
+                        {/* Dropdown rendered beneath the input */}
+                        {showTeammateDropdown && teammateSearch.trim().length > 0 && (() => {
+                          const matches = searchCampusStudents(teammateSearch);
+                          if (matches.length === 0) return null;
+                          return (
+                            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-xl shadow-2xl border border-blue-200 overflow-hidden max-h-52 overflow-y-auto divide-y divide-gray-100">
+                              <div className="px-3 py-1.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between text-[11px] font-bold text-blue-900">
+                                <span>Campus Directory ({matches.length})</span>
+                                <button type="button" onClick={() => setShowTeammateDropdown(false)} className="text-gray-400 hover:text-gray-600">
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                              {matches.map(student => {
+                                const myRoll = user?.classRollNo || user?.collegeId || profile.classRollNo;
+                                const isMe = student.collegeId === myRoll || student.classRollNo === myRoll;
+                                const isAlreadyAdded = teamMembers.some(m => m.collegeId === student.collegeId);
+                                const isTeammateClubMember = isStudentClubMember(rsvpModalEvent.clubId, student.collegeId);
+
+                                return (
+                                  <div key={student.id} className="p-2.5 hover:bg-gray-50 flex items-center justify-between gap-2.5 text-xs">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <img src={student.avatar} alt={student.name} className="w-7 h-7 rounded-full object-cover border border-gray-200" />
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-gray-900 truncate">{student.name}</p>
+                                        <p className="text-[10px] text-gray-500 font-mono truncate">{student.collegeId} • {student.department}</p>
+                                      </div>
+                                    </div>
+
+                                    {isTeammateClubMember ? (
+                                      <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1 flex-shrink-0" title="Member of this club: cannot participate">
+                                        <Shield className="w-3 h-3 text-amber-600" /> Club Member
+                                      </span>
+                                    ) : isMe ? (
+                                      <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded flex-shrink-0">
+                                        You (Lead)
+                                      </span>
+                                    ) : isAlreadyAdded ? (
+                                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex-shrink-0">
+                                        ✓ Added
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddTeammate(student)}
+                                        className="text-[10px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-200 px-2.5 py-1 rounded-lg flex-shrink-0 transition-colors"
+                                      >
+                                        + Add Teammate
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Team Roster Summary */}
+                      <div className="space-y-1.5 pt-1">
+                        <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
+                          Team Roster ({1 + teamMembers.length}/4 Members)
+                        </p>
+                        <div className="space-y-1.5">
+                          {/* Team Lead */}
+                          <div className="p-2.5 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
+                                {(profile.name || 'V').charAt(0)}
+                              </div>
+                              <div>
+                                <p className="font-bold text-gray-900 flex items-center gap-1.5">
+                                  {profile.name}
+                                  <span className="text-[10px] text-blue-700 font-bold bg-blue-100 px-1.5 py-0.2 rounded">Team Lead</span>
+                                </p>
+                                <p className="text-[10px] text-gray-500 font-mono">{profile.classRollNo} • {profile.course}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Added Teammates */}
+                          {teamMembers.map(tm => (
+                            <div key={tm.id || tm.collegeId} className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between text-xs">
+                              <div className="flex items-center gap-2">
+                                <img src={tm.avatar} alt={tm.name} className="w-7 h-7 rounded-full object-cover border border-gray-200" />
+                                <div>
+                                  <p className="font-bold text-gray-900">{tm.name}</p>
+                                  <p className="text-[10px] text-gray-500 font-mono">{tm.collegeId} • {tm.department} ({tm.year})</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTeammate(tm.collegeId)}
+                                className="text-gray-400 hover:text-red-600 p-1 rounded-lg"
+                                title="Remove Teammate"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-2.5 rounded-lg bg-emerald-50 text-[11px] text-emerald-800 border border-emerald-200 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span>Seats remaining: {rsvpModalEvent.capacity - (rsvpModalEvent.registeredCount || 0)}. Pass will be issued instantly.</span>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setRsvpModalEvent(null)}
+                      className="flex-1 text-xs font-semibold"
+                    >
+                      Back
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      onClick={handleConfirmRsvp}
+                      className="flex-1 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+                    >
+                      {rsvpType === 'team' ? `Confirm Team RSVP (${teamMembers.length + 1})` : 'Confirm My RSVP'}
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL 4: WINNERS PODIUM MODAL */}
       {winnersModalEvent && (

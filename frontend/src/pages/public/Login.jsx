@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/Button';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Input } from '../../components/Input';
+import { getClubApprovalStatus } from '../../data/mockData';
 import { 
   GraduationCap, 
   Building2, 
@@ -15,7 +16,11 @@ import {
   HelpCircle,
   ShieldCheck,
   X,
-  Briefcase
+  Briefcase,
+  Clock,
+  XCircle,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 
 export function Login() {
@@ -32,16 +37,35 @@ export function Login() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
 
+  // Toast state: { show: boolean, type: 'warning' | 'error' | 'success', title: string, message: string }
+  const [toast, setToast] = useState(null);
+
   // Forgot password modal state
   const [showForgotModal, setShowForgotModal] = useState(false);
 
+  // Trigger floating toast notification
+  const triggerToast = (type, title, message) => {
+    setToast({ type, title, message });
+    setTimeout(() => {
+      setToast(null);
+    }, 6500);
+  };
+
   // Auto-fill demo credentials
-  const handleAutoFill = (selectedRole) => {
+  const handleAutoFill = (selectedRole, variant = 'approved') => {
     setError('');
     if (selectedRole === 'club') {
       setRole('club');
-      setEmail('sharma.cse@college.edu');
-      setPassword('ClubAdmin#2026');
+      if (variant === 'requested') {
+        setEmail('verma.fintech@college.edu');
+        setPassword('FintechAdmin#2026');
+      } else if (variant === 'rejected') {
+        setEmail('roy.gaming@college.edu');
+        setPassword('GamingAdmin#2026');
+      } else {
+        setEmail('sharma.cse@college.edu');
+        setPassword('ClubAdmin#2026');
+      }
     } else {
       setRole('student');
       setEmail('vikram.cs24@college.edu');
@@ -49,12 +73,59 @@ export function Login() {
     }
   };
 
+  // Coordinator login verification checking approval status
+  const handleCoordinatorLoginAttempt = (coordRoleOrAccount) => {
+    let clubId = 'c1';
+    let userRoleKey = 'club_coordinator';
+    
+    if (typeof coordRoleOrAccount === 'string') {
+      if (coordRoleOrAccount === 'coordinator_requested') {
+        clubId = 'c_pending';
+        userRoleKey = 'coordinator_requested';
+      } else if (coordRoleOrAccount === 'coordinator_rejected') {
+        clubId = 'c_rejected';
+        userRoleKey = 'coordinator_rejected';
+      } else {
+        clubId = 'c1';
+        userRoleKey = 'club_coordinator';
+      }
+    } else if (coordRoleOrAccount?.clubId) {
+      clubId = coordRoleOrAccount.clubId;
+    }
+
+    const approvalInfo = getClubApprovalStatus(clubId);
+
+    if (approvalInfo.approvalStatus === 'requested') {
+      triggerToast(
+        'warning',
+        'not yet approved',
+        `Your club "${approvalInfo.clubName}" is currently pending review by the university administration. Access to the club coordinator dashboard will unlock once approved.`
+      );
+      return;
+    }
+
+    if (approvalInfo.approvalStatus === 'rejected') {
+      triggerToast(
+        'error',
+        'your club was rejected',
+        `Your club "${approvalInfo.clubName}" registration was rejected by university administration. Reason: ${approvalInfo.rejectionReason || 'Non-compliance with campus society guidelines.'}`
+      );
+      return;
+    }
+
+    // Approved club: log in and navigate to coordinator dashboard
+    login(userRoleKey);
+    navigate('/club-dashboard');
+  };
+
   // Direct 1-click login handler
   const handleDirectLogin = (roleType) => {
-    login(roleType);
     if (roleType === 'club_coordinator' || roleType === 'teacher' || roleType === 'club_student') {
-      navigate('/club-dashboard');
+      handleCoordinatorLoginAttempt(roleType);
+    } else if (roleType === 'coordinator_requested' || roleType === 'coordinator_rejected') {
+      handleCoordinatorLoginAttempt(roleType);
     } else {
+      login(roleType);
       navigate('/student');
     }
   };
@@ -75,8 +146,32 @@ export function Login() {
     }
 
     if (role === 'club') {
-      login('club_coordinator');
-      navigate('/club-dashboard');
+      const cleanEmail = email.trim().toLowerCase();
+      // Check preset requested demo
+      if (cleanEmail.includes('fintech') || cleanEmail.includes('verma') || cleanEmail.includes('pending')) {
+        handleCoordinatorLoginAttempt('coordinator_requested');
+        return;
+      }
+      // Check preset rejected demo
+      if (cleanEmail.includes('gaming') || cleanEmail.includes('roy') || cleanEmail.includes('rejected')) {
+        handleCoordinatorLoginAttempt('coordinator_rejected');
+        return;
+      }
+
+      // Check dynamically registered coordinators in localStorage
+      try {
+        const customAccounts = JSON.parse(localStorage.getItem('mockRegisteredCoordinators') || '[]');
+        const matched = customAccounts.find(a => a.email.toLowerCase() === cleanEmail);
+        if (matched) {
+          handleCoordinatorLoginAttempt(matched);
+          return;
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
+      // Default to approved coordinator
+      handleCoordinatorLoginAttempt('club_coordinator');
     } else {
       login('general_student');
       navigate('/student');
@@ -141,17 +236,49 @@ export function Login() {
           {/* Main Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Form Top Label with Auto-Fill Action */}
-            <div className="flex justify-between items-center pb-1">
+            <div className="flex flex-wrap justify-between items-center gap-1.5 pb-1">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                 {role === 'student' ? 'Student Credentials' : 'Club Coordinator Credentials'}
               </span>
-              <button
-                type="button"
-                onClick={() => handleAutoFill(role)}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Auto-fill Demo
-              </button>
+              {role === 'student' ? (
+                <button
+                  type="button"
+                  onClick={() => handleAutoFill('student')}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Auto-fill Student
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className="text-gray-400 font-medium">Auto-fill:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleAutoFill('club', 'approved')}
+                    className="font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
+                    title="Auto-fill approved Byte Warriors coordinator"
+                  >
+                    Approved
+                  </button>
+                  <span className="text-gray-300">•</span>
+                  <button
+                    type="button"
+                    onClick={() => handleAutoFill('club', 'requested')}
+                    className="font-bold text-amber-600 hover:text-amber-700 hover:underline cursor-pointer"
+                    title="Auto-fill requested/pending FinTech Society coordinator"
+                  >
+                    Requested
+                  </button>
+                  <span className="text-gray-300">•</span>
+                  <button
+                    type="button"
+                    onClick={() => handleAutoFill('club', 'rejected')}
+                    className="font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                    title="Auto-fill rejected Gaming Union coordinator"
+                  >
+                    Rejected
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Email Address */}
@@ -246,41 +373,83 @@ export function Login() {
           </div>
 
           {/* 1-Click Prototype Demo Logins */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
+            {/* Approved Club Coordinator */}
             <Button 
               variant="outline" 
-              className="w-full justify-start text-left gap-3.5 h-16 border-blue-200 hover:bg-blue-50/60 hover:border-blue-400 transition-all cursor-pointer group" 
+              className="w-full justify-start text-left gap-3.5 h-15 border-blue-200 hover:bg-blue-50/60 hover:border-blue-400 transition-all cursor-pointer group" 
               onClick={() => handleDirectLogin('club_coordinator')}
             >
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-700 group-hover:scale-105 transition-transform">
-                <Briefcase className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-700 group-hover:scale-105 transition-transform">
+                <Briefcase className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
-                  Continue as Club Coordinator
-                  <span className="text-[10px] uppercase font-extrabold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Faculty & Student</span>
+                <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5">
+                  Dr. Sharma • Byte Warriors
+                  <span className="text-[10px] uppercase font-extrabold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Approved</span>
                 </div>
-                <div className="text-xs text-gray-500 font-normal truncate mt-0.5">
-                  Dr. Sharma • Byte Warriors (Manage & Create Events)
+                <div className="text-[11px] text-gray-500 font-normal truncate">
+                  Unlocks full Coordinator Dashboard & Event Hosting
                 </div>
               </div>
             </Button>
 
+            {/* Pending / Requested Club Coordinator (Triggers Toast) */}
             <Button 
               variant="outline" 
-              className="w-full justify-start text-left gap-3.5 h-16 border-gray-200 hover:bg-emerald-50/40 hover:border-emerald-300 transition-all cursor-pointer group" 
-              onClick={() => handleDirectLogin('general_student')}
+              className="w-full justify-start text-left gap-3.5 h-15 border-amber-200 hover:bg-amber-50/60 hover:border-amber-400 transition-all cursor-pointer group" 
+              onClick={() => handleDirectLogin('coordinator_requested')}
             >
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-700 group-hover:scale-105 transition-transform">
-                <GraduationCap className="w-5 h-5" />
+              <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 text-amber-700 group-hover:scale-105 transition-transform">
+                <Clock className="w-4 h-4 text-amber-700" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
-                  Continue as General Student
-                  <span className="text-[10px] uppercase font-extrabold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Student Portal</span>
+                <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5">
+                  Dr. Neha Verma • FinTech Society
+                  <span className="text-[10px] uppercase font-extrabold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Requested</span>
                 </div>
-                <div className="text-xs text-gray-500 font-normal truncate mt-0.5">
-                  Vikram Singh • B.Tech CSE (Discover Clubs & Events)
+                <div className="text-[11px] text-amber-700 font-normal truncate">
+                  Tests: triggers "not yet approved" toast notification
+                </div>
+              </div>
+            </Button>
+
+            {/* Rejected Club Coordinator (Triggers Toast) */}
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-left gap-3.5 h-15 border-rose-200 hover:bg-rose-50/60 hover:border-rose-400 transition-all cursor-pointer group" 
+              onClick={() => handleDirectLogin('coordinator_rejected')}
+            >
+              <div className="w-9 h-9 rounded-xl bg-rose-100 flex items-center justify-center flex-shrink-0 text-rose-700 group-hover:scale-105 transition-transform">
+                <XCircle className="w-4 h-4 text-rose-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5">
+                  Devansh Roy • Campus Gaming Union
+                  <span className="text-[10px] uppercase font-extrabold bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded">Rejected</span>
+                </div>
+                <div className="text-[11px] text-rose-700 font-normal truncate">
+                  Tests: triggers "your club was rejected" toast notification
+                </div>
+              </div>
+            </Button>
+
+            {/* General Student Login */}
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-left gap-3.5 h-15 border-gray-200 hover:bg-emerald-50/40 hover:border-emerald-300 transition-all cursor-pointer group" 
+              onClick={() => handleDirectLogin('general_student')}
+            >
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0 text-emerald-700 group-hover:scale-105 transition-transform">
+                <GraduationCap className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-gray-900 text-xs sm:text-sm flex items-center gap-1.5">
+                  Vikram Singh • B.Tech CSE
+                  <span className="text-[10px] uppercase font-extrabold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">Student</span>
+                </div>
+                <div className="text-[11px] text-gray-500 font-normal truncate">
+                  Browse Clubs, RSVP Passes & Student Profile
                 </div>
               </div>
             </Button>
@@ -295,6 +464,45 @@ export function Login() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Dynamic Toast Notification (Fixed Top-Center) */}
+      {toast && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
+          <div className={`p-4 rounded-2xl shadow-2xl border flex items-start gap-3 backdrop-blur-md ${
+            toast.type === 'warning' 
+              ? 'bg-amber-50/95 border-amber-300 text-amber-900 shadow-amber-500/10'
+              : toast.type === 'error'
+              ? 'bg-rose-50/95 border-rose-300 text-rose-900 shadow-rose-500/10'
+              : 'bg-emerald-50/95 border-emerald-300 text-emerald-900 shadow-emerald-500/10'
+          }`}>
+            <div className="flex-shrink-0 mt-0.5">
+              {toast.type === 'warning' && <Clock className="w-5 h-5 text-amber-600 animate-pulse" />}
+              {toast.type === 'error' && <XCircle className="w-5 h-5 text-rose-600" />}
+              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+            </div>
+            <div className="flex-1 min-w-0 pr-1">
+              <div className="font-extrabold text-sm uppercase tracking-wide flex items-center gap-2">
+                <span>{toast.title}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  toast.type === 'warning' ? 'bg-amber-200/80 text-amber-800' : 'bg-rose-200/80 text-rose-800'
+                }`}>
+                  {toast.type === 'warning' ? 'Status: Requested' : 'Status: Rejected'}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed mt-1 opacity-90 font-medium">
+                {toast.message}
+              </p>
+            </div>
+            <button 
+              type="button"
+              onClick={() => setToast(null)}
+              className="text-gray-400 hover:text-gray-700 p-1 rounded-lg transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Forgot Password Modal Dialog */}
       {showForgotModal && (

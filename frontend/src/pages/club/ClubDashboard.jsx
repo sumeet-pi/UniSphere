@@ -10,7 +10,8 @@ import {
   getStoredAnnouncements, 
   addStoredAnnouncement,
   clubs, 
-  eventRegistrations 
+  eventRegistrations,
+  getClubApprovalStatus
 } from '../../data/mockData';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -41,7 +42,8 @@ import {
   FileText,
   AlertCircle,
   Eye,
-  Trophy
+  Trophy,
+  XCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -216,8 +218,49 @@ export function ClubDashboard() {
     );
   };
 
+  const approvalInfo = getClubApprovalStatus(clubId);
+
   return (
     <div className="space-y-6 pb-12">
+      {/* Club Administrative Approval Warning Banner (if requested or rejected) */}
+      {approvalInfo.approvalStatus === 'requested' && (
+        <div className="bg-amber-500 text-white p-4 rounded-2xl shadow-lg flex items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-2 border border-amber-400">
+          <div className="flex items-center gap-3">
+            <Clock className="w-6 h-6 text-amber-200 animate-pulse flex-shrink-0" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-xs uppercase tracking-wider bg-amber-600 px-2 py-0.5 rounded-full text-white">
+                  Status: Requested
+                </span>
+                <span className="font-bold text-sm">not yet approved</span>
+              </div>
+              <p className="text-xs text-amber-100 mt-0.5">
+                Your club is awaiting university admin approval. Live event registrations, member invites, and catalog broadcasting remain in preview mode.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {approvalInfo.approvalStatus === 'rejected' && (
+        <div className="bg-rose-600 text-white p-4 rounded-2xl shadow-lg flex items-start sm:items-center justify-between gap-4 animate-in slide-in-from-top-2 border border-rose-500">
+          <div className="flex items-center gap-3">
+            <XCircle className="w-6 h-6 text-rose-200 flex-shrink-0" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-xs uppercase tracking-wider bg-rose-700 px-2 py-0.5 rounded-full text-white">
+                  Status: Rejected
+                </span>
+                <span className="font-bold text-sm">your club was rejected</span>
+              </div>
+              <p className="text-xs text-rose-100 mt-0.5">
+                Administrative reason: {approvalInfo.rejectionReason || 'Application does not meet institutional compliance standards.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner / Coordinator Executive Command Hub */}
       <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 opacity-10 pointer-events-none flex items-center pr-10">
