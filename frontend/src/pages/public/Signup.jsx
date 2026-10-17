@@ -457,11 +457,13 @@ export function Signup() {
     const deptCode = clubData.department.includes('Computer') ? 'CSE' : 'CLB';
     const referenceId = `REQ-2026-${deptCode}-${randomSuffix}`;
 
+    const newClubId = `c_${Date.now()}`;
     const newClubRequest = {
       id: `u-${Date.now()}`,
       referenceId,
       name: clubData.coordinatorTeacher || 'Dr. Neha Verma',
       email: clubData.email || 'club@college.edu',
+      password: clubData.password,
       phone: clubData.phone || '+91 98101 23456',
       role: 'Club Coordinator',
       clubName: clubData.clubName || 'AI & Machine Learning Club',
@@ -470,17 +472,53 @@ export function Signup() {
       facultyAdvisor: clubData.coordinatorTeacher || 'Dr. Neha Verma',
       coordinatorTeacher: clubData.coordinatorTeacher || 'Dr. Neha Verma',
       category: clubData.category || 'Technical & Coding',
-      clubCode: 'BW-CSE-2026',
+      clubCode: `${deptCode}-${randomSuffix}`,
       clubRole: 'Faculty Club Coordinator',
-      managedClubId: 'c1',
-      clubId: 'c1',
-      status: 'Pending Higher Authority Approval',
+      managedClubId: newClubId,
+      clubId: newClubId,
+      approvalStatus: 'requested', // 'requested' | 'approved' | 'rejected'
+      status: 'Requested',
       submittedAt: new Date().toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric', 
         year: 'numeric' 
       })
     };
+
+    try {
+      // Save club profile and approval state to localStorage
+      localStorage.setItem(`mockClubProfile_${newClubId}`, JSON.stringify({
+        id: newClubId,
+        name: newClubRequest.clubName,
+        category: newClubRequest.category,
+        description: clubData.description || 'Newly registered campus organization.',
+        department: newClubRequest.department,
+        facultyAdvisor: newClubRequest.facultyAdvisor,
+        hod: newClubRequest.hod,
+        clubCode: newClubRequest.clubCode,
+        approvalStatus: 'requested',
+        status: 'Requested'
+      }));
+      localStorage.setItem(`mockClubApproval_${newClubId}`, JSON.stringify({
+        approvalStatus: 'requested',
+        rejectionReason: null,
+        clubName: newClubRequest.clubName
+      }));
+
+      // Save coordinator account for login lookup
+      const existingAccounts = JSON.parse(localStorage.getItem('mockRegisteredCoordinators') || '[]');
+      existingAccounts.push({
+        email: newClubRequest.email.toLowerCase(),
+        password: newClubRequest.password,
+        name: newClubRequest.name,
+        clubId: newClubId,
+        clubName: newClubRequest.clubName,
+        approvalStatus: 'requested'
+      });
+      localStorage.setItem('mockRegisteredCoordinators', JSON.stringify(existingAccounts));
+    } catch (err) {
+      console.error('Error saving requested club registration:', err);
+    }
 
     setSubmittedClubRequest(newClubRequest);
   };

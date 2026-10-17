@@ -5,7 +5,8 @@ import {
   addStoredMember, 
   updateStoredMember, 
   deleteStoredMember, 
-  clubs 
+  clubs,
+  searchCampusStudents
 } from '../../data/mockData';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -50,7 +51,11 @@ export function ManageMembers() {
   const [viewingMember, setViewingMember] = useState(null);
   const [editingRoleMember, setEditingRoleMember] = useState(null);
   const [newRoleValue, setNewRoleValue] = useState('Member');
+  const [newMembershipValue, setNewMembershipValue] = useState('YES');
   const [toastMessage, setToastMessage] = useState('');
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+  const [showRollSuggestions, setShowRollSuggestions] = useState(false);
+  const [selectedFromDirectory, setSelectedFromDirectory] = useState(false);
 
   const [newStudent, setNewStudent] = useState({ 
     name: '', 
@@ -59,7 +64,8 @@ export function ManageMembers() {
     phone: '', 
     department: 'CSE', 
     year: '2nd Year', 
-    role: 'Member' 
+    role: 'Member',
+    membership: 'YES' // 'YES' = Official Member (Restricted from registering for club events), 'NO' = Non-member
   });
 
   const showToast = (msg) => {
@@ -100,6 +106,23 @@ export function ManageMembers() {
   const generalMembersCount = membersList.filter(m => m.role === 'Member').length;
   const uniqueDepartments = Array.from(new Set(membersList.map(m => m.department))).filter(Boolean);
 
+  // Auto-fill student details selected from campus directory search
+  const handleSelectStudent = (student) => {
+    setNewStudent(prev => ({
+      ...prev,
+      name: student.name,
+      collegeId: student.collegeId || student.classRollNo,
+      email: student.email,
+      phone: student.phone || prev.phone,
+      department: student.department || 'CSE',
+      year: student.year || '2nd Year',
+      membership: prev.membership || 'YES'
+    }));
+    setShowNameSuggestions(false);
+    setShowRollSuggestions(false);
+    setSelectedFromDirectory(true);
+  };
+
   // Handle adding a new member directly without any invitation code
   const handleAddMember = (e) => {
     e.preventDefault();
@@ -117,6 +140,7 @@ export function ManageMembers() {
       department: newStudent.department,
       year: newStudent.year,
       role: newStudent.role,
+      membership: newStudent.membership || 'YES',
       status: 'Active',
       joinedDate: new Date().toISOString().split('T')[0]
     };
@@ -130,10 +154,12 @@ export function ManageMembers() {
       phone: '', 
       department: 'CSE', 
       year: '2nd Year', 
-      role: 'Member' 
+      role: 'Member',
+      membership: 'YES'
     });
+    setSelectedFromDirectory(false);
     setShowAddModal(false);
-    showToast(`✓ Added ${newMemberObj.name} directly to the club roster without any code!`);
+    showToast(`✓ Added ${newMemberObj.name} directly to the club roster with Membership: ${newMemberObj.membership}!`);
   };
 
   // Handle changing role of an existing member
@@ -141,11 +167,14 @@ export function ManageMembers() {
     e.preventDefault();
     if (!editingRoleMember) return;
 
-    updateStoredMember(editingRoleMember.id, { role: newRoleValue });
+    updateStoredMember(editingRoleMember.id, { 
+      role: newRoleValue,
+      membership: newMembershipValue
+    });
     reloadMembers();
     const targetName = editingRoleMember.name;
     setEditingRoleMember(null);
-    showToast(`✓ Updated ${targetName}'s role to ${newRoleValue}!`);
+    showToast(`✓ Updated ${targetName}'s role to ${newRoleValue} (Membership: ${newMembershipValue})!`);
   };
 
   // Handle removing a member from the club
@@ -404,6 +433,7 @@ export function ManageMembers() {
                   <th className="px-6 py-3.5 font-bold">Student Member</th>
                   <th className="px-6 py-3.5 font-bold">Department & Year</th>
                   <th className="px-6 py-3.5 font-bold">Club Role</th>
+                  <th className="px-6 py-3.5 font-bold">Event Eligibility</th>
                   <th className="px-6 py-3.5 font-bold">Contact Info</th>
                   <th className="px-6 py-3.5 font-bold">Joined Date</th>
                   <th className="px-6 py-3.5 text-right font-bold">Actions</th>
@@ -443,6 +473,16 @@ export function ManageMembers() {
                     {/* Club Role */}
                     <td className="px-6 py-4">
                       {getRoleBadge(member.role)}
+                    </td>
+
+                    {/* Event Eligibility (Confirmed Rule: Club members cannot participate) */}
+                    <td className="px-6 py-4">
+                      <span 
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200" 
+                        title="Club members are organizers and strictly restricted from registering as participants"
+                      >
+                        <Shield className="w-3.5 h-3.5 text-amber-600" /> Club Member (Cannot RSVP)
+                      </span>
                     </td>
 
                     {/* Contact Info */}
@@ -485,6 +525,7 @@ export function ManageMembers() {
                           onClick={() => {
                             setEditingRoleMember(member);
                             setNewRoleValue(member.role || 'Member');
+                            setNewMembershipValue(member.membership || 'YES');
                           }}
                           title="Change Role & Leadership"
                           className="p-1.5 text-gray-500 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg"
@@ -507,7 +548,7 @@ export function ManageMembers() {
 
                 {filteredMembers.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="text-center py-12 text-gray-500">
+                    <td colSpan="7" className="text-center py-12 text-gray-500">
                       <Users className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                       <p className="font-bold text-gray-800 text-base">No club members match your filter</p>
                       <p className="text-xs text-gray-400 mt-1">Try resetting your search query or role filter.</p>
@@ -561,21 +602,156 @@ export function ManageMembers() {
                 </div>
               </div>
 
+              {selectedFromDirectory && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs p-3 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span>Auto-filled details from Campus Student Directory</span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedFromDirectory(false)}
+                    className="text-emerald-700 hover:text-emerald-900 text-[11px] font-semibold underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input 
-                  label="Student Full Name" 
-                  placeholder="e.g. Siddharth Bansal" 
-                  value={newStudent.name}
-                  onChange={e => setNewStudent({ ...newStudent, name: e.target.value })}
-                  required 
-                />
-                <Input 
-                  label="College Roll No / ID" 
-                  placeholder="e.g. CS25088" 
-                  value={newStudent.collegeId}
-                  onChange={e => setNewStudent({ ...newStudent, collegeId: e.target.value })}
-                  required 
-                />
+                {/* Student Full Name with live directory search beneath */}
+                <div className="relative">
+                  <Input 
+                    label="Student Full Name" 
+                    placeholder="Type name (e.g. Siddharth Bansal)" 
+                    value={newStudent.name}
+                    onChange={e => {
+                      setNewStudent({ ...newStudent, name: e.target.value });
+                      setShowNameSuggestions(true);
+                      setShowRollSuggestions(false);
+                      setSelectedFromDirectory(false);
+                    }}
+                    onFocus={() => {
+                      if (newStudent.name.trim().length > 0) setShowNameSuggestions(true);
+                    }}
+                    required 
+                  />
+
+                  {/* Directory Search Results Dropdown beneath the input */}
+                  {showNameSuggestions && newStudent.name.trim().length > 0 && (() => {
+                    const matches = searchCampusStudents(newStudent.name);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-xl shadow-2xl border border-blue-200 overflow-hidden max-h-56 overflow-y-auto divide-y divide-gray-100 animate-in fade-in zoom-in-95 duration-100">
+                        <div className="px-3 py-1.5 bg-blue-50/70 border-b border-blue-100 flex items-center justify-between text-[11px] font-bold text-blue-900">
+                          <span className="flex items-center gap-1.5">
+                            <Search className="w-3 h-3 text-blue-600" />
+                            Campus Students ({matches.length})
+                          </span>
+                          <button 
+                            type="button" 
+                            onClick={() => setShowNameSuggestions(false)}
+                            className="text-gray-400 hover:text-gray-600 text-xs"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {matches.map(student => (
+                          <div
+                            key={student.id}
+                            onClick={() => handleSelectStudent(student)}
+                            className="p-2.5 hover:bg-blue-50/80 cursor-pointer transition-colors flex items-center justify-between gap-2.5 group"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img 
+                                src={student.avatar} 
+                                alt={student.name} 
+                                className="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0" 
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-bold text-gray-900 text-xs group-hover:text-blue-700 truncate">{student.name}</p>
+                                  <span className="text-[10px] font-mono font-semibold bg-gray-100 text-gray-700 px-1 py-0.2 rounded border border-gray-200">{student.collegeId}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 truncate">{student.department} • {student.year}</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold text-blue-600 group-hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex-shrink-0">
+                              Auto-fill ↵
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* College Roll No / ID with live directory search beneath */}
+                <div className="relative">
+                  <Input 
+                    label="College Roll No / ID" 
+                    placeholder="Type roll no (e.g. CS25088)" 
+                    value={newStudent.collegeId}
+                    onChange={e => {
+                      setNewStudent({ ...newStudent, collegeId: e.target.value });
+                      setShowRollSuggestions(true);
+                      setShowNameSuggestions(false);
+                      setSelectedFromDirectory(false);
+                    }}
+                    onFocus={() => {
+                      if (newStudent.collegeId.trim().length > 0) setShowRollSuggestions(true);
+                    }}
+                    required 
+                  />
+
+                  {/* Directory Search Results Dropdown beneath the roll no input */}
+                  {showRollSuggestions && newStudent.collegeId.trim().length > 0 && (() => {
+                    const matches = searchCampusStudents(newStudent.collegeId);
+                    if (matches.length === 0) return null;
+                    return (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white rounded-xl shadow-2xl border border-blue-200 overflow-hidden max-h-56 overflow-y-auto divide-y divide-gray-100 animate-in fade-in zoom-in-95 duration-100">
+                        <div className="px-3 py-1.5 bg-blue-50/70 border-b border-blue-100 flex items-center justify-between text-[11px] font-bold text-blue-900">
+                          <span className="flex items-center gap-1.5">
+                            <Search className="w-3 h-3 text-blue-600" />
+                            Campus Students ({matches.length})
+                          </span>
+                          <button 
+                            type="button" 
+                            onClick={() => setShowRollSuggestions(false)}
+                            className="text-gray-400 hover:text-gray-600 text-xs"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        {matches.map(student => (
+                          <div
+                            key={student.id}
+                            onClick={() => handleSelectStudent(student)}
+                            className="p-2.5 hover:bg-blue-50/80 cursor-pointer transition-colors flex items-center justify-between gap-2.5 group"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img 
+                                src={student.avatar} 
+                                alt={student.name} 
+                                className="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0" 
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-bold text-gray-900 text-xs group-hover:text-blue-700 truncate">{student.name}</p>
+                                  <span className="text-[10px] font-mono font-semibold bg-gray-100 text-gray-700 px-1 py-0.2 rounded border border-gray-200">{student.collegeId}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 truncate">{student.department} • {student.year}</p>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold text-blue-600 group-hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 flex-shrink-0">
+                              Auto-fill ↵
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -625,6 +801,17 @@ export function ManageMembers() {
                 </div>
               </div>
 
+              {/* Confirmed Rule: Club Member Event Restriction */}
+              <div className="bg-amber-50/80 border border-amber-200 text-amber-950 text-xs p-3 rounded-xl flex items-start gap-2.5">
+                <Shield className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">Club Member Participation Policy</p>
+                  <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
+                    Once enrolled, this student belongs to {club.name} and is <strong>restricted from registering or participating</strong> in any of this club's events.
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">Assign Club Role</label>
                 <select 
@@ -667,7 +854,7 @@ export function ManageMembers() {
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
               <div className="flex items-center gap-2">
                 <Edit3 className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-gray-900">Change Club Role</h3>
+                <h3 className="font-bold text-gray-900">Change Member Role</h3>
               </div>
               <button 
                 onClick={() => setEditingRoleMember(null)} 
@@ -705,9 +892,12 @@ export function ManageMembers() {
                 </select>
               </div>
 
-              <p className="text-xs text-gray-500">
-                Updating role immediately gives the student coordinator privileges or demotes them to general member status.
-              </p>
+              <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-950">
+                <Shield className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-900 leading-relaxed">
+                  Club member. Strictly restricted from registering for {club.name} events.
+                </p>
+              </div>
 
               <div className="pt-3 border-t border-gray-100 flex justify-end gap-2.5">
                 <Button 
@@ -721,7 +911,7 @@ export function ManageMembers() {
                   type="submit" 
                   className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
                 >
-                  Save New Role
+                  Save Changes
                 </Button>
               </div>
             </form>

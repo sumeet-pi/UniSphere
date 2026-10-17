@@ -7,6 +7,8 @@ export const clubs = [
     memberCount: 128,
     facultyHead: 'Dr. Sharma',
     upcomingEventsCount: 6,
+    approvalStatus: 'approved',
+    status: 'ACTIVE',
     logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=ByteWarriors&backgroundColor=0a5c36,18181b',
     banner: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&q=80&w=1000',
     coreTeam: [
@@ -23,6 +25,8 @@ export const clubs = [
     memberCount: 85,
     facultyHead: 'Prof. Mehta',
     upcomingEventsCount: 2,
+    approvalStatus: 'approved',
+    status: 'ACTIVE',
     logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=Robotics&backgroundColor=b91c1c,18181b',
     banner: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1000',
     coreTeam: []
@@ -35,6 +39,8 @@ export const clubs = [
     memberCount: 112,
     facultyHead: 'Dr. Iyer',
     upcomingEventsCount: 1,
+    approvalStatus: 'approved',
+    status: 'ACTIVE',
     logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=Literary&backgroundColor=4338ca,18181b',
     banner: 'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&q=80&w=1000',
     coreTeam: []
@@ -47,36 +53,98 @@ export const clubs = [
     memberCount: 205,
     facultyHead: 'Prof. Desai',
     upcomingEventsCount: 3,
+    approvalStatus: 'approved',
+    status: 'ACTIVE',
     logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=ECell&backgroundColor=f59e0b,18181b',
     banner: 'https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&q=80&w=1000',
+    coreTeam: []
+  },
+  {
+    id: 'c_pending',
+    name: 'FinTech & Blockchain Society',
+    category: 'Entrepreneurship',
+    description: 'Pioneering decentralized applications, algorithmic trading, and student financial literacy.',
+    memberCount: 0,
+    facultyHead: 'Dr. Neha Verma',
+    upcomingEventsCount: 0,
+    approvalStatus: 'requested', // 'requested' | 'approved' | 'rejected'
+    status: 'Requested',
+    submittedAt: '2026-10-16',
+    clubCode: 'FINTECH-2026',
+    department: 'Management & Computer Applications',
+    logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=FinTech&backgroundColor=0284c7,18181b',
+    banner: 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?auto=format&fit=crop&q=80&w=1000',
+    coreTeam: []
+  },
+  {
+    id: 'c_rejected',
+    name: 'Campus Gaming & Esports Union',
+    category: 'Arts & Culture',
+    description: 'Competitive collegiate esports tournaments, LAN parties, and casual gaming community.',
+    memberCount: 0,
+    facultyHead: 'Prof. S. K. Gupta',
+    upcomingEventsCount: 0,
+    approvalStatus: 'rejected',
+    rejectionReason: 'Faculty advisor endorsement letter is missing, and campus policy restricts unaccredited video game societies.',
+    status: 'Rejected',
+    submittedAt: '2026-10-10',
+    rejectedAt: '2026-10-14',
+    clubCode: 'ESPORTS-2026',
+    department: 'Student Affairs',
+    logo: 'https://api.dicebear.com/7.x/shapes/svg?seed=Gaming&backgroundColor=dc2626,18181b',
+    banner: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=1000',
     coreTeam: []
   }
 ];
 
-export const getStoredClubs = () => {
-  return clubs.map(club => {
+export const getStoredClubs = (approvedOnly = true) => {
+  const allClubs = clubs.map(club => {
     try {
       const saved = localStorage.getItem(`mockClubProfile_${club.id}`);
+      const savedApproval = localStorage.getItem(`mockClubApproval_${club.id}`);
+      let approvalStatus = club.approvalStatus;
+      let rejectionReason = club.rejectionReason;
+      
+      if (savedApproval) {
+        try {
+          const parsedApproval = JSON.parse(savedApproval);
+          approvalStatus = parsedApproval.approvalStatus || approvalStatus;
+          rejectionReason = parsedApproval.rejectionReason || rejectionReason;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
           ...club,
           ...parsed,
+          approvalStatus,
+          rejectionReason,
           facultyAdvisor: parsed.facultyAdvisor || parsed.coordinatorTeacher || club.facultyHead || 'Dr. Sharma',
           clubCode: parsed.clubCode || parsed.inviteCode || (club.id === 'c1' ? 'BW-CSE-2026' : `CLUB-${club.id.toUpperCase()}`),
           department: parsed.department || club.department || (club.category === 'Computer Science' ? 'Computer Science & Engineering' : 'Engineering & Applied Sciences')
         };
       }
+      return {
+        ...club,
+        approvalStatus,
+        rejectionReason,
+        facultyAdvisor: club.facultyHead || 'Faculty In-Charge',
+        clubCode: club.id === 'c1' ? 'BW-CSE-2026' : `CLUB-${club.id.toUpperCase()}`,
+        department: club.department || (club.category === 'Computer Science' ? 'Computer Science & Engineering' : 'Engineering & Applied Sciences')
+      };
     } catch (e) {
       console.error(e);
     }
-    return {
-      ...club,
-      facultyAdvisor: club.facultyHead || 'Faculty In-Charge',
-      clubCode: club.id === 'c1' ? 'BW-CSE-2026' : `CLUB-${club.id.toUpperCase()}`,
-      department: club.department || (club.category === 'Computer Science' ? 'Computer Science & Engineering' : 'Engineering & Applied Sciences')
-    };
+    return club;
   });
+
+  if (approvedOnly) {
+    return allClubs.filter(c => c.approvalStatus === 'approved');
+  }
+  return allClubs;
 };
 
 export const events = [
@@ -297,15 +365,15 @@ export const deleteStoredAnnouncement = (announcementId) => {
 
 
 export const members = [
-  { id: 'm1', clubId: 'c1', name: 'Manav Sharma', collegeId: 'CS24001', email: 'manav.sharma@campus.edu', phone: '+91 98765 43210', department: 'CSE', year: '3rd Year', role: 'Student Coordinator', status: 'Active', joinedDate: '2024-08-15' },
-  { id: 'm2', clubId: 'c1', name: 'Aarav Patel', collegeId: 'CS24045', email: 'aarav.patel@campus.edu', phone: '+91 98123 45678', department: 'CSE', year: '3rd Year', role: 'Technical Lead', status: 'Active', joinedDate: '2024-08-16' },
-  { id: 'm3', clubId: 'c1', name: 'Neha Gupta', collegeId: 'CS25102', email: 'neha.gupta@campus.edu', phone: '+91 98345 67890', department: 'CSE', year: '2nd Year', role: 'Event Manager', status: 'Active', joinedDate: '2025-08-20' },
-  { id: 'm4', clubId: 'c1', name: 'Jatin Verma', collegeId: 'IT25011', email: 'jatin.verma@campus.edu', phone: '+91 98456 78901', department: 'IT', year: '2nd Year', role: 'Member', status: 'Active', joinedDate: '2025-09-01' },
-  { id: 'm5', clubId: 'c1', name: 'Om Prakash', collegeId: 'CS26005', email: 'om.prakash@campus.edu', phone: '+91 98567 89012', department: 'CSE', year: '1st Year', role: 'Member', status: 'Active', joinedDate: '2026-08-25' },
-  { id: 'm6', clubId: 'c1', name: 'Tanvi Shah', collegeId: 'EC24088', email: 'tanvi.shah@campus.edu', phone: '+91 98678 90123', department: 'ECE', year: '3rd Year', role: 'Member', status: 'Active', joinedDate: '2025-01-10' },
-  { id: 'm7', clubId: 'c1', name: 'Rohan Mehta', collegeId: 'CS25022', email: 'rohan.mehta@campus.edu', phone: '+91 98789 01234', department: 'CSE', year: '2nd Year', role: 'Member', status: 'Active', joinedDate: '2025-09-15' },
-  { id: 'm8', clubId: 'c1', name: 'Ananya Sen', collegeId: 'IT26019', email: 'ananya.sen@campus.edu', phone: '+91 98890 12345', department: 'IT', year: '1st Year', role: 'Member', status: 'Active', joinedDate: '2026-09-01' },
-  { id: 'm9', clubId: 'c1', name: 'Siddharth Rao', collegeId: 'ME24031', email: 'siddharth.rao@campus.edu', phone: '+91 98901 23456', department: 'ME', year: '3rd Year', role: 'Member', status: 'Active', joinedDate: '2025-02-14' },
+  { id: 'm1', clubId: 'c1', name: 'Manav Sharma', collegeId: 'CS24001', email: 'manav.sharma@campus.edu', phone: '+91 98765 43210', department: 'CSE', year: '3rd Year', role: 'Student Coordinator', membership: 'YES', status: 'Active', joinedDate: '2024-08-15' },
+  { id: 'm2', clubId: 'c1', name: 'Aarav Patel', collegeId: 'CS24045', email: 'aarav.patel@campus.edu', phone: '+91 98123 45678', department: 'CSE', year: '3rd Year', role: 'Technical Lead', membership: 'YES', status: 'Active', joinedDate: '2024-08-16' },
+  { id: 'm3', clubId: 'c1', name: 'Neha Gupta', collegeId: 'CS25102', email: 'neha.gupta@campus.edu', phone: '+91 98345 67890', department: 'CSE', year: '2nd Year', role: 'Event Manager', membership: 'YES', status: 'Active', joinedDate: '2025-08-20' },
+  { id: 'm4', clubId: 'c1', name: 'Jatin Verma', collegeId: 'IT25011', email: 'jatin.verma@campus.edu', phone: '+91 98456 78901', department: 'IT', year: '2nd Year', role: 'Member', membership: 'YES', status: 'Active', joinedDate: '2025-09-01' },
+  { id: 'm5', clubId: 'c1', name: 'Om Prakash', collegeId: 'CS26005', email: 'om.prakash@campus.edu', phone: '+91 98567 89012', department: 'CSE', year: '1st Year', role: 'Member', membership: 'YES', status: 'Active', joinedDate: '2026-08-25' },
+  { id: 'm6', clubId: 'c1', name: 'Tanvi Shah', collegeId: 'EC24088', email: 'tanvi.shah@campus.edu', phone: '+91 98678 90123', department: 'ECE', year: '3rd Year', role: 'Member', membership: 'YES', status: 'Active', joinedDate: '2025-01-10' },
+  { id: 'm7', clubId: 'c1', name: 'Rohan Mehta', collegeId: 'CS25022', email: 'rohan.mehta@campus.edu', phone: '+91 98789 01234', department: 'CSE', year: '2nd Year', role: 'Member', membership: 'YES', status: 'Active', joinedDate: '2025-09-15' },
+  { id: 'm8', clubId: 'c1', name: 'Ananya Sen', collegeId: 'IT26019', email: 'ananya.sen@campus.edu', phone: '+91 98890 12345', department: 'IT', year: '1st Year', role: 'Member', membership: 'YES', status: 'Active', joinedDate: '2026-09-01' },
+  { id: 'm9', clubId: 'c1', name: 'Siddharth Rao', collegeId: 'ME24031', email: 'siddharth.rao@campus.edu', phone: '+91 98901 23456', department: 'ME', year: '3rd Year', role: 'Member', membership: 'YES', status: 'Active', joinedDate: '2025-02-14' },
 ];
 
 // Member storage helpers
@@ -334,6 +402,7 @@ export const addStoredMember = (newMember) => {
       id: newMember.id || `m_${Date.now()}`,
       clubId: newMember.clubId || 'c1',
       role: newMember.role || 'Member',
+      membership: newMember.membership !== undefined ? newMember.membership : 'YES',
       status: newMember.status || 'Active',
       joinedDate: newMember.joinedDate || new Date().toISOString().split('T')[0]
     };
@@ -368,6 +437,29 @@ export const deleteStoredMember = (memberId) => {
     console.error('Error deleting member:', e);
     return [];
   }
+};
+
+// Check if a student is an official member of a club with membership === 'YES'
+// If membership is 'YES', the student CANNOT register for events hosted by this club.
+export const isStudentClubMember = (clubId, studentCollegeId = null) => {
+  if (!studentCollegeId || !clubId) return false;
+  const currentMembers = getStoredMembers(clubId);
+  const targetId = studentCollegeId.trim().toLowerCase();
+  return currentMembers.some(m => 
+    m.collegeId && 
+    m.collegeId.trim().toLowerCase() === targetId &&
+    (m.membership === 'YES' || m.membership === undefined || m.membership === true)
+  );
+};
+
+// Check if current user is considered an active member of the club
+export const isUserClubMember = (clubId, joinedClubIds = [], user = null) => {
+  if (!clubId) return false;
+  if (Array.isArray(joinedClubIds) && joinedClubIds.includes(clubId)) return true;
+  if (user?.clubId === clubId || user?.managedClubId === clubId) return true;
+  const userRoll = user?.classRollNo || user?.collegeId || user?.universityRollNo;
+  if (userRoll && isStudentClubMember(clubId, userRoll)) return true;
+  return false;
 };
 
 
@@ -514,11 +606,40 @@ export const deleteStoredTask = (taskId) => {
 export const mockUsers = {
   club_coordinator: {
     id: 'u1',
-    name: 'Maan Saab',
+    name: 'Dr. Sharma',
     role: 'Club Coordinator',
     clubId: 'c1',
     managedClubId: 'c1',
-    clubRole: 'Lead Coordinator (Byte Warriors)'
+    clubRole: 'Lead Coordinator (Byte Warriors)',
+    approvalStatus: 'approved'
+  },
+  coordinator_approved: {
+    id: 'u1',
+    name: 'Dr. Sharma',
+    role: 'Club Coordinator',
+    clubId: 'c1',
+    managedClubId: 'c1',
+    clubRole: 'Lead Coordinator (Byte Warriors)',
+    approvalStatus: 'approved'
+  },
+  coordinator_requested: {
+    id: 'u_pending',
+    name: 'Dr. Neha Verma',
+    role: 'Club Coordinator',
+    clubId: 'c_pending',
+    managedClubId: 'c_pending',
+    clubRole: 'Faculty Coordinator (FinTech Society)',
+    approvalStatus: 'requested'
+  },
+  coordinator_rejected: {
+    id: 'u_rejected',
+    name: 'Devansh Roy',
+    role: 'Club Coordinator',
+    clubId: 'c_rejected',
+    managedClubId: 'c_rejected',
+    clubRole: 'Lead Coordinator (Campus Gaming Union)',
+    approvalStatus: 'rejected',
+    rejectionReason: 'Faculty advisor endorsement letter is missing, and campus policy restricts unaccredited video game societies.'
   },
   general_student: {
     id: 'u5',
@@ -547,19 +668,81 @@ export const mockUsers = {
   // Backward compatibility aliases
   teacher: {
     id: 'u1',
-    name: 'Maan Saab',
+    name: 'Dr. Sharma',
     role: 'Club Coordinator',
     clubId: 'c1',
     managedClubId: 'c1',
-    clubRole: 'Faculty Club Head'
+    clubRole: 'Faculty Club Head',
+    approvalStatus: 'approved'
   },
   club_student: {
     id: 'u2',
-    name: 'Maan Saab',
+    name: 'Aarav Kumar',
     role: 'Club Coordinator',
     clubId: 'c1',
     managedClubId: 'c1',
-    clubRole: 'Student Coordinator'
+    clubRole: 'Student Coordinator',
+    approvalStatus: 'approved'
+  }
+};
+
+// Club Approval Status helper functions
+export const getClubApprovalStatus = (clubId) => {
+  try {
+    const savedApproval = localStorage.getItem(`mockClubApproval_${clubId}`);
+    if (savedApproval) {
+      return JSON.parse(savedApproval);
+    }
+    const savedProfile = localStorage.getItem(`mockClubProfile_${clubId}`);
+    if (savedProfile) {
+      const parsed = JSON.parse(savedProfile);
+      if (parsed.approvalStatus) {
+        return {
+          approvalStatus: parsed.approvalStatus,
+          rejectionReason: parsed.rejectionReason || null,
+          clubName: parsed.name || 'Club'
+        };
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  const club = clubs.find(c => c.id === clubId);
+  if (club) {
+    return {
+      approvalStatus: club.approvalStatus || 'approved',
+      rejectionReason: club.rejectionReason || null,
+      clubName: club.name
+    };
+  }
+  return { approvalStatus: 'approved', rejectionReason: null, clubName: 'Club' };
+};
+
+export const getPendingClubs = () => {
+  const all = getStoredClubs(false);
+  return all.filter(c => c.approvalStatus === 'requested');
+};
+
+export const approveClub = (clubId) => {
+  try {
+    const payload = { approvalStatus: 'approved', rejectionReason: null };
+    localStorage.setItem(`mockClubApproval_${clubId}`, JSON.stringify(payload));
+    return payload;
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+export const rejectClub = (clubId, reason) => {
+  try {
+    const payload = { 
+      approvalStatus: 'rejected', 
+      rejectionReason: reason || 'Application does not meet institutional compliance standards.' 
+    };
+    localStorage.setItem(`mockClubApproval_${clubId}`, JSON.stringify(payload));
+    return payload;
+  } catch (e) {
+    console.error(e);
   }
 };
 
@@ -611,5 +794,132 @@ export const addStoredEvent = (newEvent) => {
     console.error(e);
     return events;
   }
+};
+
+// Campus Student Directory for autocomplete search
+export const campusStudentsDirectory = [
+  {
+    id: 'u5',
+    name: 'Vikram Singh',
+    collegeId: 'CS24089',
+    classRollNo: 'CS24089',
+    universityRollNo: '2400100345',
+    email: 'vikram.singh@college.edu',
+    phone: '+91 98765 43210',
+    department: 'CSE',
+    course: 'B.Tech',
+    branch: 'Computer Science & Engineering',
+    year: '2nd Year',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400'
+  },
+  {
+    id: 'u6',
+    name: 'Ayush Sharma',
+    collegeId: 'CS24012',
+    classRollNo: 'CS24012',
+    universityRollNo: '2400100112',
+    email: 'ayush.sharma@college.edu',
+    phone: '+91 98111 22334',
+    department: 'CSE',
+    course: 'B.Tech',
+    branch: 'Computer Science & Engineering',
+    year: '2nd Year',
+    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=400'
+  },
+  {
+    id: 'u7',
+    name: 'Priya Roy',
+    collegeId: 'CS25034',
+    classRollNo: 'CS25034',
+    universityRollNo: '2400100456',
+    email: 'priya.roy@college.edu',
+    phone: '+91 98222 33445',
+    department: 'CSE',
+    course: 'B.Tech',
+    branch: 'Computer Science & Engineering',
+    year: '3rd Year',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=400'
+  },
+  {
+    id: 'u8',
+    name: 'Kabir Patel',
+    collegeId: 'IT25055',
+    classRollNo: 'IT25055',
+    universityRollNo: '2400200055',
+    email: 'kabir.patel@college.edu',
+    phone: '+91 98333 44556',
+    department: 'IT',
+    course: 'B.Tech',
+    branch: 'Information Technology',
+    year: '2nd Year',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400'
+  },
+  {
+    id: 'u9',
+    name: 'Ananya Sen',
+    collegeId: 'IT26019',
+    classRollNo: 'IT26019',
+    universityRollNo: '2400200119',
+    email: 'ananya.sen@college.edu',
+    phone: '+91 98890 12345',
+    department: 'IT',
+    course: 'B.Tech',
+    branch: 'Information Technology',
+    year: '1st Year',
+    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=400'
+  },
+  {
+    id: 'u10',
+    name: 'Rohan Mehta',
+    collegeId: 'CS25022',
+    classRollNo: 'CS25022',
+    universityRollNo: '2400100789',
+    email: 'rohan.mehta@college.edu',
+    phone: '+91 98789 01234',
+    department: 'CSE',
+    course: 'B.Tech',
+    branch: 'Computer Science & Engineering',
+    year: '2nd Year',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400'
+  },
+  {
+    id: 'u11',
+    name: 'Tanvi Shah',
+    collegeId: 'EC24088',
+    classRollNo: 'EC24088',
+    universityRollNo: '2400300088',
+    email: 'tanvi.shah@college.edu',
+    phone: '+91 98678 90123',
+    department: 'ECE',
+    course: 'B.Tech',
+    branch: 'Electronics & Communication',
+    year: '3rd Year',
+    avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=400'
+  },
+  {
+    id: 'u12',
+    name: 'Siddharth Rao',
+    collegeId: 'ME24031',
+    classRollNo: 'ME24031',
+    universityRollNo: '2400400031',
+    email: 'siddharth.rao@college.edu',
+    phone: '+91 98901 23456',
+    department: 'ME',
+    course: 'B.Tech',
+    branch: 'Mechanical Engineering',
+    year: '3rd Year',
+    avatar: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&q=80&w=400'
+  }
+];
+
+export const searchCampusStudents = (query) => {
+  if (!query || query.trim().length === 0) return [];
+  const q = query.trim().toLowerCase();
+  return campusStudentsDirectory.filter(s => 
+    s.name.toLowerCase().includes(q) ||
+    s.collegeId.toLowerCase().includes(q) ||
+    (s.universityRollNo && s.universityRollNo.toLowerCase().includes(q)) ||
+    s.email.toLowerCase().includes(q)
+  );
 };
 
