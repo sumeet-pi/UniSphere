@@ -4,18 +4,25 @@ import { Card, CardContent } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { ImagePlus, Info, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { addStoredEvent, clubs } from '../../data/mockData';
 
 export function CreateEvent() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const clubId = user?.clubId || user?.managedClubId || 'c1';
+  const club = clubs.find(c => c.id === clubId) || clubs[0];
+
   const [success, setSuccess] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     category: 'Technical',
+    stage: 'open',
     description: '',
     date: '',
     venue: '',
-    startTime: '',
-    endTime: '',
+    startTime: '10:00 AM',
+    endTime: '04:00 PM',
     capacity: '100',
     eligibility: 'Open to all departments',
     rules: 'Teams of 2-4 members, Bring laptops'
@@ -23,10 +30,30 @@ export function CreateEvent() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    addStoredEvent({
+      clubId: club.id,
+      clubName: club.name,
+      title: formData.title,
+      category: formData.category,
+      date: formData.date,
+      time: `${formData.startTime} - ${formData.endTime}`,
+      venue: formData.venue,
+      description: formData.description,
+      rules: formData.rules.split(',').map(r => r.trim()).filter(Boolean),
+      eligibility: formData.eligibility,
+      capacity: parseInt(formData.capacity, 10) || 100,
+      registeredCount: 0,
+      stage: formData.stage,
+      eventStage: formData.stage,
+      status: formData.stage === 'past' ? 'Past' : (formData.stage === 'closed' ? 'Closed' : 'Upcoming'),
+      image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&q=80&w=1000'
+    });
+
     setSuccess(true);
     setTimeout(() => {
       navigate('/club-dashboard/events');
-    }, 1500);
+    }, 1200);
   };
 
   return (
@@ -84,7 +111,7 @@ export function CreateEvent() {
                 ></textarea>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                   <select 
@@ -97,6 +124,18 @@ export function CreateEvent() {
                     <option>Cultural & Arts</option>
                     <option>Seminar / Tech Talk</option>
                     <option>Competition</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Registration Status</label>
+                  <select 
+                    value={formData.stage}
+                    onChange={e => setFormData({ ...formData, stage: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-medium"
+                  >
+                    <option value="open">🟢 Open for Registration</option>
+                    <option value="upcoming">⏳ Announced (Registrations Soon)</option>
+                    <option value="closed">🔒 Registration Closed</option>
                   </select>
                 </div>
                 <Input 

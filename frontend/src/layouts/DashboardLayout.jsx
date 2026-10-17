@@ -57,7 +57,7 @@ export function DashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div 
@@ -66,23 +66,37 @@ export function DashboardLayout() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar - Pinned & Non-scrollable with page */}
       <aside 
         className={cn(
-          "fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 flex flex-col",
+          "fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 flex flex-col h-full flex-shrink-0 select-none",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
+        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 flex-shrink-0">
           <Link to="/" className="flex items-center gap-2 font-extrabold text-xl text-blue-600 tracking-tight">
-            <span className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xs font-bold">U</span>
+            <span className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-xs">U</span>
             UniSphere
           </Link>
-          <button className="lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <button className="lg:hidden p-1 rounded-lg text-gray-500 hover:text-gray-700" onClick={() => setSidebarOpen(false)}>
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
+        {/* Club Spotlight Banner for Club Coordinators */}
+        {user.role !== 'General Student' && (
+          <div className="px-5 py-2.5 bg-blue-50/60 border-b border-blue-100/70 flex items-center gap-2.5 flex-shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
+              {(user.clubName || 'Byte Warriors').charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-gray-900 truncate">{user.clubName || 'Byte Warriors'}</p>
+              <p className="text-[10px] text-blue-700 font-medium truncate">{user.department || 'CSE Department'}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
           {links.map((link) => {
             const Icon = link.icon;
@@ -95,9 +109,9 @@ export function DashboardLayout() {
                 key={link.name}
                 to={link.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-colors text-sm",
                   isActive 
-                    ? "bg-blue-50 text-blue-700" 
+                    ? "bg-blue-50 text-blue-700 font-semibold" 
                     : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                 )}
                 onClick={() => setSidebarOpen(false)}
@@ -109,29 +123,30 @@ export function DashboardLayout() {
           })}
         </div>
 
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
+        {/* Sidebar Footer with User Details */}
+        <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-white">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold flex-shrink-0">
               {user.name.charAt(0)}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-medium text-gray-900 truncate">{user.name}</p>
+              <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
               <p className="text-xs text-gray-500 truncate">{user.clubRole || user.role}</p>
             </div>
           </div>
           <button 
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
             Sign Out
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 lg:px-8 flex-shrink-0">
           <button 
             className="lg:hidden p-2 -ml-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
             onClick={() => setSidebarOpen(true)}
@@ -139,9 +154,13 @@ export function DashboardLayout() {
             <Menu className="w-6 h-6" />
           </button>
 
-          <div className="flex items-center gap-4 ml-auto">
-            <button className="relative p-2 text-gray-400 hover:text-gray-500 rounded-full hover:bg-gray-100">
-              <Bell className="w-6 h-6" />
+          <div className="flex items-center gap-3 ml-auto">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Portal Online
+            </div>
+            <button className="relative p-2 text-gray-400 hover:text-gray-500 rounded-full hover:bg-gray-100 cursor-pointer">
+              <Bell className="w-5 h-5" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
             </button>
           </div>

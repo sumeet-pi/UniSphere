@@ -467,8 +467,10 @@ export function Signup() {
       clubName: clubData.clubName || 'AI & Machine Learning Club',
       department: clubData.department || 'Computer Science & Engineering',
       hod: clubData.hod || 'Dr. V. K. Mathur',
+      facultyAdvisor: clubData.coordinatorTeacher || 'Dr. Neha Verma',
       coordinatorTeacher: clubData.coordinatorTeacher || 'Dr. Neha Verma',
       category: clubData.category || 'Technical & Coding',
+      clubCode: 'BW-CSE-2026',
       clubRole: 'Faculty Club Coordinator',
       managedClubId: 'c1',
       clubId: 'c1',
@@ -540,8 +542,8 @@ export function Signup() {
                   <span className="font-semibold text-gray-800">{submittedClubRequest.hod}</span>
                 </div>
                 <div>
-                  <span className="text-gray-400 font-medium">Faculty Coordinator:</span>{' '}
-                  <span className="font-semibold text-gray-800">{submittedClubRequest.coordinatorTeacher}</span>
+                  <span className="text-gray-400 font-medium">Faculty Advisor:</span>{' '}
+                  <span className="font-semibold text-gray-800">{submittedClubRequest.facultyAdvisor || submittedClubRequest.coordinatorTeacher}</span>
                 </div>
                 <div>
                   <span className="text-gray-400 font-medium">Coordinator Contact:</span>{' '}
@@ -963,7 +965,7 @@ export function Signup() {
                 </div>
               </div>
 
-              {/* HOD & Coordinator Teacher (2 columns) */}
+              {/* HOD & Faculty Advisor (2 columns) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input 
                   label="Head of Department (HOD)" 
@@ -973,8 +975,8 @@ export function Signup() {
                   required 
                 />
                 <Input 
-                  label="Club Coordinator Teacher" 
-                  placeholder="e.g. Dr. Sharma / Prof. Ananya Gupta" 
+                  label="Faculty Advisor" 
+                  placeholder="e.g. Dr. Sharma / Dr. Neha Verma" 
                   value={clubData.coordinatorTeacher}
                   onChange={e => setClubData({ ...clubData, coordinatorTeacher: e.target.value })}
                   required 

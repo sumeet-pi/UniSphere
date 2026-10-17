@@ -113,11 +113,11 @@ export function ManageMembers() {
               </div>
 
               <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 text-center">
-                <p className="text-sm text-gray-500 mb-2">Or share the club invite code:</p>
+                <p className="text-sm text-gray-500 mb-2">Or share the unique club code:</p>
                 <div className="font-mono font-bold text-lg text-gray-900 tracking-wider bg-gray-200 py-2 rounded">
                   BW-CSE-2026
                 </div>
-                <p className="text-xs text-gray-400 mt-2">Students can use this code to request/join the club.</p>
+                <p className="text-xs text-gray-400 mt-2">Students can use this unique code to represent and join the club.</p>
               </div>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
