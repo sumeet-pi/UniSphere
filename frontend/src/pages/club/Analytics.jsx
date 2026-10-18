@@ -3,8 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   getStoredEvents, 
   getStoredMembers, 
-  clubs, 
-  eventRegistrations 
+  clubs
 } from '../../data/mockData';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -43,7 +42,6 @@ export function Analytics() {
 
   const [timeHorizon, setTimeHorizon] = useState('Current Semester (Spring 2026)');
   const [reportExported, setReportExported] = useState(false);
-  const [selectedMetric, setSelectedMetric] = useState('all');
 
   // Load live persistent data
   const eventsList = getStoredEvents().filter(e => e.clubId === club.id);
@@ -54,21 +52,7 @@ export function Analytics() {
   const totalCapacity = eventsList.reduce((acc, curr) => acc + (curr.capacity || 100), 0);
   const avgTurnoutRate = totalCapacity > 0 ? Math.round((totalRegistrations / totalCapacity) * 100) : 92;
   const completedEvents = eventsList.filter(e => e.stage === 'past' || e.status === 'Past');
-  const activeEvents = eventsList.filter(e => e.stage === 'open' || e.stage === 'closed' || e.stage === 'upcoming');
   const certificatesIssued = completedEvents.reduce((acc, curr) => acc + (curr.registeredCount || 80), 0);
-
-  // Department distribution
-  const deptCounts = membersList.reduce((acc, m) => {
-    const d = m.department || 'CSE';
-    acc[d] = (acc[d] || 0) + 1;
-    return acc;
-  }, {});
-
-  const deptPercentages = Object.entries(deptCounts).map(([dept, count]) => ({
-    dept,
-    count,
-    percent: Math.round((count / (membersList.length || 1)) * 100)
-  }));
 
   const handleExportReport = () => {
     setReportExported(true);

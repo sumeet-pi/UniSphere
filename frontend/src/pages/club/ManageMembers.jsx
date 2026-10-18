@@ -1,10 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../context/AuthContext';
 import { 
+  fetchClubMembers, 
+  addClubMemberAction, 
+  removeClubMemberAction, 
+  updateMemberRoleAction 
+} from '../../store/slices/membersSlice';
+import { 
   getStoredMembers, 
-  addStoredMember, 
-  updateStoredMember, 
-  deleteStoredMember, 
   clubs,
   searchCampusStudents
 } from '../../data/mockData';
@@ -39,11 +43,14 @@ import {
 import { Link } from 'react-router-dom';
 
 export function ManageMembers() {
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const clubId = user?.clubId || user?.managedClubId || 'c1';
   const club = clubs.find(c => c.id === clubId) || clubs[0];
 
-  const [membersList, setMembersList] = useState(() => getStoredMembers(club.id));
+  const clubMembersState = useSelector((state) => state.members.byClubId[club.id]);
+  const membersList = clubMembersState?.members || getStoredMembers(club.id);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
@@ -68,15 +75,16 @@ export function ManageMembers() {
     membership: 'YES' // 'YES' = Official Member (Restricted from registering for club events), 'NO' = Non-member
   });
 
+  // Fetch canonical members from backend on mount and when club changes
+  useEffect(() => {
+    dispatch(fetchClubMembers(club.id));
+  }, [dispatch, club.id]);
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage('');
     }, 3500);
-  };
-
-  const reloadMembers = () => {
-    setMembersList(getStoredMembers(club.id));
   };
 
   // Filter members based on search, role, and department
@@ -123,8 +131,8 @@ export function ManageMembers() {
     setSelectedFromDirectory(true);
   };
 
-  // Handle adding a new member directly without any invitation code
-  const handleAddMember = (e) => {
+  // Handle adding a new member directly via Redux
+  const handleAddMember = async (e) => {
     e.preventDefault();
     if (!newStudent.name || !newStudent.collegeId) return;
 
@@ -140,13 +148,14 @@ export function ManageMembers() {
       department: newStudent.department,
       year: newStudent.year,
       role: newStudent.role,
+      designation: newStudent.role,
       membership: newStudent.membership || 'YES',
       status: 'Active',
       joinedDate: new Date().toISOString().split('T')[0]
     };
 
-    addStoredMember(newMemberObj);
-    reloadMembers();
+    await dispatch(addClubMemberAction({ clubId: club.id, memberData: newMemberObj }));
+    
     setNewStudent({ 
       name: '', 
       collegeId: '', 
@@ -159,29 +168,36 @@ export function ManageMembers() {
     });
     setSelectedFromDirectory(false);
     setShowAddModal(false);
-    showToast(`✓ Added ${newMemberObj.name} directly to the club roster with Membership: ${newMemberObj.membership}!`);
+    showToast(`✓ Added ${newMemberObj.name} directly to the club roster!`);
   };
 
-  // Handle changing role of an existing member
-  const handleSaveRoleChange = (e) => {
+  // Handle changing role of an existing member via Redux
+  const handleSaveRoleChange = async (e) => {
     e.preventDefault();
     if (!editingRoleMember) return;
 
-    updateStoredMember(editingRoleMember.id, { 
-      role: newRoleValue,
-      membership: newMembershipValue
-    });
-    reloadMembers();
     const targetName = editingRoleMember.name;
+    await dispatch(updateMemberRoleAction({
+      clubId: club.id,
+      userId: editingRoleMember.id,
+      payload: { 
+        role: newRoleValue,
+        designation: newRoleValue,
+        membership: newMembershipValue
+      }
+    }));
     setEditingRoleMember(null);
-    showToast(`✓ Updated ${targetName}'s role to ${newRoleValue} (Membership: ${newMembershipValue})!`);
+    showToast(`✓ Updated ${targetName}'s role to ${newRoleValue}!`);
   };
 
-  // Handle removing a member from the club
-  const handleRemoveMember = (member) => {
+  // Handle removing a member from the club via Redux
+  const handleRemoveMember = async (member) => {
     if (window.confirm(`Are you sure you want to remove ${member.name} (${member.collegeId}) from ${club.name}?`)) {
-      deleteStoredMember(member.id);
-      reloadMembers();
+      await dispatch(removeClubMemberAction({
+        clubId: club.id,
+        userId: member.id,
+        memberObj: member
+      }));
       showToast(`Removed ${member.name} from club roster.`);
     }
   };

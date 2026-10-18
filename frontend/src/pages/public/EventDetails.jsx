@@ -39,7 +39,6 @@ export function EventDetails() {
   // Role detection: distinguish General Student from Club Coordinator
   const isCoordinator = user?.role === 'Club Coordinator' || user?.role === 'teacher' || user?.role === 'club_student';
   const isStudent = user?.role === 'General Student';
-  const isLoggedIn = !!user;
 
   // Determine event stage: 'open' | 'closed' | 'upcoming' | 'past'
   const getEventStage = (evt) => {
@@ -476,7 +475,6 @@ export function EventDetails() {
                     {event.winners && event.winners.map((winner, idx) => {
                       const isGold = idx === 0 || winner.rank.includes('1st');
                       const isSilver = idx === 1 || winner.rank.includes('2nd');
-                      const isBronze = idx === 2 || winner.rank.includes('3rd');
 
                       return (
                         <div 
@@ -637,7 +635,7 @@ export function EventDetails() {
               <div className="p-4 bg-gray-50 rounded-xl space-y-2 border border-gray-100">
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-500">Attendee:</span>
-                  <span className="font-bold text-gray-900">{user?.name || 'Vikram Singh'}</span>
+                  <span className="font-bold text-gray-900">{user?.name || 'Student'}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-gray-500">College ID:</span>

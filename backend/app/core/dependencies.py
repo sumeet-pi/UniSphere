@@ -75,16 +75,29 @@ def get_optional_user(
         return None
 
 
-def require_role(*roles: str):
+get_optional_current_user = get_optional_user
+
+
+def require_role(*roles):
     """Returns a dependency that checks the current user has one of the given roles."""
+    # Flatten if passed a list or tuple as first argument
+    allowed_roles = []
+    for r in roles:
+        if isinstance(r, (list, tuple, set)):
+            allowed_roles.extend(r)
+        else:
+            allowed_roles.append(r)
+
+    # Normalize allowed roles to uppercase for case-insensitive comparison
+    normalized_allowed = [r.upper() for r in allowed_roles]
+
     def _check(user: User = Depends(get_current_user)) -> User:
-        if user.role not in roles:
+        user_role_upper = user.role.upper() if user.role else ""
+        if user_role_upper not in normalized_allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "code": "INSUFFICIENT_PERMISSIONS",
-                    "message": f"Requires one of roles: {', '.join(roles)}.",
-                },
+                detail=f"Requires one of roles: {', '.join(allowed_roles)}.",
             )
         return user
     return _check
+

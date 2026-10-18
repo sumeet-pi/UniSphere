@@ -47,19 +47,18 @@ import {
   TrendingUp,
   HeartPulse
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 export function StudentDashboard() {
   const { user, registeredEventIds, registerForEvent, unregisterFromEvent, joinedClubIds = [] } = useAuth();
-  const navigate = useNavigate();
 
   // Dynamic student profile from storage
   const [profile, setProfile] = useState(() => {
-    const stored = getStoredStudentProfile();
+    const stored = getStoredStudentProfile() || {};
     return {
       ...stored,
-      name: user?.name || stored.name || 'Vikram Singh',
-      email: user?.email || stored.email || 'vikram.singh@college.edu'
+      name: user?.name || stored.name || 'Student',
+      email: user?.email || stored.email || '',
     };
   });
 

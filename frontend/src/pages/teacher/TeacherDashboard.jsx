@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { events, clubs, members, eventRegistrations } from '../../data/mockData';
+import { events, clubs, eventRegistrations } from '../../data/mockData';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Users, Calendar as CalendarIcon, TrendingUp, Plus } from 'lucide-react';

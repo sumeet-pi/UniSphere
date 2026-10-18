@@ -227,29 +227,6 @@ export function Tasks() {
     );
   };
 
-  // Status badge helper
-  const getStatusBadge = (status) => {
-    if (status === 'completed') {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-          <CheckCircle2 className="w-3 h-3" /> Done
-        </span>
-      );
-    }
-    if (status === 'in_progress') {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-          <Clock className="w-3 h-3" /> In Progress
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-        <AlertCircle className="w-3 h-3" /> To-Do
-      </span>
-    );
-  };
-
   return (
     <div className="space-y-6">
       {/* Toast Notification */}

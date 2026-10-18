@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { clubs, events, getStoredAnnouncements, getStoredEvents, addStoredMember } from '../../data/mockData';
+import { clubs, getStoredAnnouncements, getStoredEvents, addStoredMember } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -148,7 +148,6 @@ export function ClubProfile() {
   // Role detection: distinguish General Student from Club Coordinator
   const isCoordinator = user?.role === 'Club Coordinator' || user?.role === 'teacher' || user?.role === 'club_student';
   const isStudent = user?.role === 'General Student';
-  const isLoggedIn = !!user;
 
   // Filter state for events tab: 'all' | 'open' | 'upcoming' | 'past'
   const [eventStageFilter, setEventStageFilter] = useState('all');
@@ -194,7 +193,7 @@ export function ClubProfile() {
   });
 
   const handleJoinClick = () => {
-    if (isCoordinatorViewing) {
+    if (isCoordinator) {
       alert("You are viewing from a Club Coordinator perspective. Students can join freely without codes.");
       return;
     }

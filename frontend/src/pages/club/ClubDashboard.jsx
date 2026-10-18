@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../context/AuthContext';
+import { fetchClubMembers } from '../../store/slices/membersSlice';
+import { fetchClubById } from '../../store/slices/clubsSlice';
 import { 
   getStoredEvents, 
   updateStoredEvent,
@@ -48,27 +51,31 @@ import {
 import { Link } from 'react-router-dom';
 
 export function ClubDashboard() {
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const clubId = user?.clubId || user?.managedClubId || 'c1';
   const defaultClub = clubs.find(c => c.id === clubId) || clubs[0];
 
+  const reduxClub = useSelector((state) => state.clubs.currentClub);
+  const reduxMembersData = useSelector((state) => state.members.byClubId[clubId]);
+
   // Load dynamically updated club profile if edited
-  const [club] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`mockClubProfile_${clubId}`);
-      if (saved) {
-        return { ...defaultClub, ...JSON.parse(saved) };
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return defaultClub;
-  });
+  const club = {
+    ...defaultClub,
+    ...(reduxClub || {}),
+    name: user?.clubName || reduxClub?.name || defaultClub.name,
+    department: user?.department || reduxClub?.department || defaultClub.department,
+  };
+
+  useEffect(() => {
+    dispatch(fetchClubById(clubId));
+    dispatch(fetchClubMembers(clubId));
+  }, [dispatch, clubId]);
 
   // Stored state subscriptions with setters for live reactive updates
   const [tasks, setTasks] = useState(() => getStoredTasks(club.id));
   const [allEvents, setAllEvents] = useState(() => getStoredEvents());
-  const [membersList, setMembersList] = useState(() => getStoredMembers(club.id));
+  const membersList = reduxMembersData?.members || getStoredMembers(club.id);
   const [announcementsList, setAnnouncementsList] = useState(() => getStoredAnnouncements(club.id));
 
   // Sync state if storage updates elsewhere
@@ -76,7 +83,6 @@ export function ClubDashboard() {
     const handleStorageChange = () => {
       setTasks(getStoredTasks(club.id));
       setAllEvents(getStoredEvents());
-      setMembersList(getStoredMembers(club.id));
       setAnnouncementsList(getStoredAnnouncements(club.id));
     };
     window.addEventListener('storage', handleStorageChange);

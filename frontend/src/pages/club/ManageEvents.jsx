@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { events, eventRegistrations, getStoredEvents, updateStoredEvent } from '../../data/mockData';
+import { eventRegistrations, getStoredEvents, updateStoredEvent } from '../../data/mockData';
 import { Card, CardContent } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Badge } from '../../components/Badge';

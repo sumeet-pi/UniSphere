@@ -7,6 +7,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.core.dependencies import get_current_user
 from app.db.session import get_db
 from app.models.user import User
+from app.models.student_profile import StudentProfile
 from app.models.membership import ClubMembership
 from app.models.club import Club
 from app.schemas.auth import (
@@ -34,13 +35,14 @@ def _user_to_response(user: User, db: Session) -> UserResponse:
     managed_club_id = None
     club_role_label = None
 
-    if user.role in ("organizer", "faculty"):
+    user_role_lower = (user.role or "").strip().lower().replace("_", "")
+    if user_role_lower in ("organizer", "faculty", "clubcoordinator", "coordinator"):
         membership = (
             db.query(ClubMembership)
             .filter(
                 ClubMembership.user_id == user.id,
-                ClubMembership.status == "approved",
-                ClubMembership.club_role.in_(["coordinator", "faculty_head"]),
+                ClubMembership.status.in_(["approved", "ACTIVE", "pending"]),
+                ClubMembership.role.in_(["coordinator", "faculty_head", "COORDINATOR", "FACULTY_HEAD"]),
             )
             .first()
         )
@@ -48,9 +50,17 @@ def _user_to_response(user: User, db: Session) -> UserResponse:
             club_id = membership.club_id
             managed_club_id = membership.club_id
             club_role_label = (
-                "Faculty Club Head" if user.role == "faculty"
+                "Faculty Club Head" if "faculty" in user_role_lower
                 else "Lead Coordinator"
             )
+        if not club_id:
+            club = db.query(Club).filter(
+                (Club.faculty_advisor_id == user.id) | (Club.email == user.email)
+            ).first()
+            if club:
+                club_id = club.id
+                managed_club_id = club.id
+                club_role_label = "Lead Coordinator"
 
     return UserResponse(
         id=user.id,
@@ -72,13 +82,22 @@ def _user_to_response(user: User, db: Session) -> UserResponse:
 
 
 def _map_role_to_frontend(role: str) -> str:
-    """Map backend role names to frontend-expected display names."""
-    return {
+    """Map backend role names to frontend-expected display names.
+    Handles both uppercase (ADMIN, CLUB_COORDINATOR, GENERAL_STUDENT) from seed
+    and lowercase (admin, organizer, student) from registration endpoints.
+    """
+    normalized = role.strip().lower().replace("_", "") if role else role
+    mapping = {
         "student": "General Student",
+        "generalstudent": "General Student",
         "organizer": "Club Coordinator",
         "faculty": "Club Coordinator",
+        "clubcoordinator": "Club Coordinator",
+        "facultyhead": "Club Coordinator",
         "admin": "Admin",
-    }.get(role, role)
+        "administrator": "Admin",
+    }
+    return mapping.get(normalized, role)
 
 
 def _handle_student_registration(req: StudentSignupRequest, db: Session) -> LoginResponse:
@@ -100,19 +119,29 @@ def _handle_student_registration(req: StudentSignupRequest, db: Session) -> Logi
         )
 
     user = User(
-        full_name=req.full_name.strip(),
+        name=req.full_name.strip(),
         email=email,
         password_hash=hash_password(req.password),
         role="student",  # Student role
         status="active",
         phone=req.phone,
-        course=req.course,
-        branch=req.branch,
-        semester=req.semester,
-        class_roll_no=req.class_roll_no,
-        university_roll_no=req.university_roll_no,
     )
     db.add(user)
+    db.flush()
+
+    from app.models.student_profile import StudentProfile
+    profile = StudentProfile(
+        user_id=user.id,
+        course=req.course or "B.Tech",
+        branch=req.branch or "Computer Science & Engineering",
+        semester=req.semester or "1st Sem",
+        class_roll_no=req.class_roll_no or "CS001",
+        university_roll_no=req.university_roll_no or f"UNI-{user.id[:8]}",
+        department="Computer Science & Engineering",
+        admission_year=2024,
+        graduation_year=2028,
+    )
+    db.add(profile)
     db.commit()
     db.refresh(user)
 
@@ -177,39 +206,53 @@ def register_coordinator(req: CoordinatorSignupRequest, db: Session = Depends(ge
     reference_id = f"REQ-2026-{dept_code}-{random_digits}"
 
     # 6. Atomic Transaction: create coordinator user (organizer role, pending status), club (pending status), membership (pending)
-    coordinator_name = req.faculty_advisor.strip() or f"{club_name} Coordinator"
-    user = User(
-        full_name=coordinator_name,
-        email=email,
-        password_hash=hash_password(req.password),
-        role="organizer",  # Canonical coordinator role
-        status="pending",  # Pending authority approval
-        phone=req.phone.strip(),
-        branch=req.department.strip(),
-    )
-    db.add(user)
-    db.flush()
+    try:
+        coordinator_name = req.faculty_advisor.strip() or f"{club_name} Coordinator"
+        user = User(
+            name=coordinator_name,
+            email=email,
+            password_hash=hash_password(req.password),
+            role="organizer",  # Canonical coordinator role
+            status="pending",  # Pending authority approval
+            phone=req.phone.strip(),
+        )
+        db.add(user)
+        db.flush()
 
-    club = Club(
-        name=club_name,
-        slug=slug,
-        category=req.category.strip(),
-        description=req.description.strip() if req.description else None,
-        faculty_head=req.faculty_advisor.strip(),
-        status="pending",  # Club is pending approval
-        creator_id=user.id,
-    )
-    db.add(club)
-    db.flush()
+        club = Club(
+            name=club_name,
+            slug=slug,
+            club_code=f"CLB-{dept_code}-{random_digits}",
+            department=req.department.strip(),
+            category=req.category.strip(),
+            description=req.description.strip() if req.description else "College student activity club.",
+            faculty_advisor_name=req.faculty_advisor.strip(),
+            hod_name=req.hod.strip() if hasattr(req, "hod") and req.hod else "Dr. V. K. Mathur",
+            status="pending",  # Club is pending approval
+            approval_status="requested",
+            coordinator_id=user.id,
+            faculty_advisor_id=user.id,
+            email=email,
+            phone=req.phone.strip(),
+        )
+        db.add(club)
+        db.flush()
 
-    membership = ClubMembership(
-        user_id=user.id,
-        club_id=club.id,
-        status="pending",  # Pending membership
-        club_role="coordinator",
-    )
-    db.add(membership)
-    db.commit()
+        membership = ClubMembership(
+            user_id=user.id,
+            club_id=club.id,
+            status="pending",  # Pending membership
+            role="COORDINATOR",
+            designation="Faculty Advisor / Coordinator",
+        )
+        db.add(membership)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": "REGISTRATION_FAILED", "message": f"Failed to register coordinator: {str(e)}"},
+        )
 
     return CoordinatorSignupResponse(
         message="Club registration request submitted successfully for authority approval.",

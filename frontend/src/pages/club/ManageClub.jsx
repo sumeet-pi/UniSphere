@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../context/AuthContext';
+import { updateClubProfile, fetchClubById } from '../../store/slices/clubsSlice';
+import { 
+  fetchClubMembers, 
+  addClubMemberAction, 
+  removeClubMemberAction 
+} from '../../store/slices/membersSlice';
 import { clubs } from '../../data/mockData';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Input } from '../../components/Input';
@@ -73,9 +80,14 @@ const LOGO_PRESETS = [
 ];
 
 export function ManageClub() {
+  const dispatch = useDispatch();
   const { user } = useAuth();
   const clubId = user?.clubId || user?.managedClubId || 'c1';
   const baseClub = clubs.find(c => c.id === clubId) || clubs[0];
+
+  const reduxClub = useSelector((state) => state.clubs.currentClub);
+  const clubMembersState = useSelector((state) => state.members.byClubId[clubId]);
+  const liveMemberCount = clubMembersState?.totalMembers;
 
   // Initialize initial profile data merging baseClub with signup user information
   const getInitialClubData = () => {
@@ -141,6 +153,25 @@ export function ManageClub() {
   });
   const [showAddMember, setShowAddMember] = useState(false);
 
+  // Load canonical club details & member roster on mount
+  useEffect(() => {
+    dispatch(fetchClubById(clubId));
+    dispatch(fetchClubMembers(clubId));
+  }, [dispatch, clubId]);
+
+  // Sync state when redux updates
+  useEffect(() => {
+    if (reduxClub) {
+      setClubData(prev => ({
+        ...prev,
+        ...reduxClub,
+        memberCount: liveMemberCount !== undefined ? liveMemberCount : (reduxClub.memberCount || prev.memberCount)
+      }));
+    } else if (liveMemberCount !== undefined) {
+      setClubData(prev => ({ ...prev, memberCount: liveMemberCount }));
+    }
+  }, [reduxClub, liveMemberCount]);
+
   // Sync formData whenever editing is toggled on
   const handleStartEdit = () => {
     setFormData(JSON.parse(JSON.stringify(clubData)));
@@ -153,7 +184,7 @@ export function ManageClub() {
     setShowAddMember(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Keep clubCode and legacy inviteCode in sync
     const normalized = {
       ...formData,
@@ -161,11 +192,10 @@ export function ManageClub() {
       coordinatorTeacher: formData.facultyAdvisor || formData.coordinatorTeacher
     };
     setClubData(normalized);
-    try {
-      localStorage.setItem(`mockClubProfile_${clubId}`, JSON.stringify(normalized));
-    } catch (e) {
-      console.error(e);
-    }
+    
+    // Dispatch to Redux store (persists to backend database and updates auth spotlight)
+    await dispatch(updateClubProfile({ clubId, clubData: normalized }));
+
     setIsEditing(false);
     setShowAddMember(false);
     setSaveSuccess(true);
@@ -178,12 +208,13 @@ export function ManageClub() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleAddTeamMember = () => {
+  const handleAddTeamMember = async () => {
     if (!newMember.name.trim() || !newMember.role.trim()) return;
     const memberObj = {
       id: `ct-${Date.now()}`,
       name: newMember.name.trim(),
       role: newMember.role.trim(),
+      designation: newMember.role.trim(),
       year: newMember.year,
       department: newMember.department
     };
@@ -191,15 +222,31 @@ export function ManageClub() {
       ...prev,
       coreTeam: [...(prev.coreTeam || []), memberObj]
     }));
+
+    // Also persist via membersSlice to update Members tab immediately
+    await dispatch(addClubMemberAction({
+      clubId,
+      memberData: {
+        name: memberObj.name,
+        collegeId: `CS-${Date.now().toString().slice(-4)}`,
+        role: memberObj.role,
+        designation: memberObj.role,
+        department: memberObj.department,
+        year: memberObj.year,
+        status: 'Active'
+      }
+    }));
+
     setNewMember({ name: '', role: '', year: '3rd Year', department: 'CSE' });
     setShowAddMember(false);
   };
 
-  const handleRemoveTeamMember = (id) => {
+  const handleRemoveTeamMember = async (id) => {
     setFormData(prev => ({
       ...prev,
       coreTeam: prev.coreTeam.filter(m => m.id !== id)
     }));
+    await dispatch(removeClubMemberAction({ clubId, userId: id, memberObj: { id } }));
   };
 
   const activeClubCode = clubData.clubCode || clubData.inviteCode || 'BW-CSE-2026';

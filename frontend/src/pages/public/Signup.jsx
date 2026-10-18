@@ -18,8 +18,10 @@ import {
   ShieldCheck,
   Shield,
   Clock,
-  Send
+  Send,
+  Loader2
 } from 'lucide-react';
+import { getDashboardPathForRole } from '../../services/roles';
 
 // Dynamic course configuration
 export const COURSE_CONFIGS = {
@@ -278,12 +280,13 @@ function PasswordFields({
 }
 
 export function Signup() {
-  const { signup } = useAuth();
+  const { signupWithCredentials, registerCoordinator } = useAuth();
   const navigate = useNavigate();
 
   // Active role tab: 'student' or 'club'
   const [role, setRole] = useState('student');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedClubRequest, setSubmittedClubRequest] = useState(null);
 
   // General Student Form State
@@ -406,7 +409,7 @@ export function Signup() {
   };
 
   // Student form submission
-  const handleStudentSubmit = (e) => {
+  const handleStudentSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -421,25 +424,32 @@ export function Signup() {
     }
 
     const config = COURSE_CONFIGS[studentData.course] || COURSE_CONFIGS['B.Tech'];
-    const newUser = {
-      id: `u-${Date.now()}`,
-      name: studentData.name || 'Student User',
-      email: studentData.email || 'student@college.edu',
-      phone: studentData.phone || '+91 98765 43210',
-      role: 'General Student',
-      classRollNo: studentData.classRollNo || '1',
-      universityRollNo: studentData.universityRollNo || '2401020001',
+    const payload = {
+      full_name: studentData.name.trim(),
+      email: studentData.email.trim(),
+      password: studentData.password,
+      phone: studentData.phone?.trim() || null,
       course: studentData.course,
-      branch: config.hasBranch ? studentData.branch : '',
-      sem: studentData.sem
+      branch: config.hasBranch ? studentData.branch : null,
+      semester: studentData.sem,
+      class_roll_no: studentData.classRollNo?.trim() || null,
+      university_roll_no: studentData.universityRollNo?.trim() || null,
     };
 
-    signup(newUser);
-    navigate('/student');
+    setIsSubmitting(true);
+    try {
+      const registeredUser = await signupWithCredentials(payload);
+      const destination = getDashboardPathForRole(registeredUser?.role) || '/student';
+      navigate(destination);
+    } catch (err) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Club form submission - routes to higher authority approval
-  const handleClubSubmit = (e) => {
+  const handleClubSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -453,74 +463,51 @@ export function Signup() {
       return;
     }
 
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const deptCode = clubData.department.includes('Computer') ? 'CSE' : 'CLB';
-    const referenceId = `REQ-2026-${deptCode}-${randomSuffix}`;
-
-    const newClubId = `c_${Date.now()}`;
-    const newClubRequest = {
-      id: `u-${Date.now()}`,
-      referenceId,
-      name: clubData.coordinatorTeacher || 'Dr. Neha Verma',
-      email: clubData.email || 'club@college.edu',
+    const payload = {
+      club_name: clubData.clubName.trim(),
+      department: clubData.department.trim(),
+      category: clubData.category.trim(),
+      hod: clubData.hod.trim(),
+      faculty_advisor: clubData.coordinatorTeacher.trim(),
+      email: clubData.email.trim(),
+      phone: clubData.phone.trim(),
+      description: clubData.description?.trim() || null,
       password: clubData.password,
-      phone: clubData.phone || '+91 98101 23456',
-      role: 'Club Coordinator',
-      clubName: clubData.clubName || 'AI & Machine Learning Club',
-      department: clubData.department || 'Computer Science & Engineering',
-      hod: clubData.hod || 'Dr. V. K. Mathur',
-      facultyAdvisor: clubData.coordinatorTeacher || 'Dr. Neha Verma',
-      coordinatorTeacher: clubData.coordinatorTeacher || 'Dr. Neha Verma',
-      category: clubData.category || 'Technical & Coding',
-      clubCode: `${deptCode}-${randomSuffix}`,
-      clubRole: 'Faculty Club Coordinator',
-      managedClubId: newClubId,
-      clubId: newClubId,
-      approvalStatus: 'requested', // 'requested' | 'approved' | 'rejected'
-      status: 'Requested',
-      submittedAt: new Date().toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      })
     };
 
+    setIsSubmitting(true);
     try {
-      // Save club profile and approval state to localStorage
-      localStorage.setItem(`mockClubProfile_${newClubId}`, JSON.stringify({
-        id: newClubId,
-        name: newClubRequest.clubName,
-        category: newClubRequest.category,
-        description: clubData.description || 'Newly registered campus organization.',
-        department: newClubRequest.department,
-        facultyAdvisor: newClubRequest.facultyAdvisor,
-        hod: newClubRequest.hod,
-        clubCode: newClubRequest.clubCode,
-        approvalStatus: 'requested',
-        status: 'Requested'
-      }));
-      localStorage.setItem(`mockClubApproval_${newClubId}`, JSON.stringify({
-        approvalStatus: 'requested',
-        rejectionReason: null,
-        clubName: newClubRequest.clubName
-      }));
-
-      // Save coordinator account for login lookup
-      const existingAccounts = JSON.parse(localStorage.getItem('mockRegisteredCoordinators') || '[]');
-      existingAccounts.push({
-        email: newClubRequest.email.toLowerCase(),
-        password: newClubRequest.password,
-        name: newClubRequest.name,
-        clubId: newClubId,
-        clubName: newClubRequest.clubName,
-        approvalStatus: 'requested'
-      });
-      localStorage.setItem('mockRegisteredCoordinators', JSON.stringify(existingAccounts));
+      const response = await registerCoordinator(payload);
+      const newClubRequest = {
+        id: response.club_id,
+        referenceId: response.reference_id,
+        name: response.faculty_advisor,
+        email: response.email,
+        phone: response.phone,
+        role: 'Club Coordinator',
+        clubName: response.club_name,
+        department: response.department,
+        hod: response.hod,
+        facultyAdvisor: response.faculty_advisor,
+        coordinatorTeacher: response.faculty_advisor,
+        category: response.category,
+        clubCode: 'BW-CSE-2026',
+        clubRole: 'Faculty Club Coordinator',
+        managedClubId: response.club_id,
+        clubId: response.club_id,
+        status: 'Pending Higher Authority Approval',
+        submittedAt: new Date().toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })
+      };
+      setSubmittedClubRequest(newClubRequest);
     } catch (err) {
-      console.error('Error saving requested club registration:', err);
+      setError(err.message || 'Club registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setSubmittedClubRequest(newClubRequest);
   };
 
   // If a club registration request was submitted, display the pending authority confirmation screen
@@ -665,7 +652,7 @@ export function Signup() {
                 </Link>
               </div>
 
-              {/* Demo Override Button for Prototype Testing */}
+              {/* Actions */}
               <div className="pt-2 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500">
                 <button
                   type="button"
@@ -674,17 +661,12 @@ export function Signup() {
                 >
                   ← Submit another proposal
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    signup(submittedClubRequest);
-                    navigate('/club-dashboard');
-                  }}
+                <Link
+                  to="/login"
                   className="font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 text-xs cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  [Demo Preview: Bypass & Open Club Dashboard]
-                </button>
+                  Sign In with Coordinator Account →
+                </Link>
               </div>
             </div>
           </CardContent>
@@ -920,8 +902,20 @@ export function Signup() {
 
               {/* Submit Button */}
               <div className="pt-2">
-                <Button type="submit" className="w-full h-11 text-sm font-bold shadow-md gap-2">
-                  Complete Student Registration ({studentData.course}) <ArrowRight className="w-4 h-4" />
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full h-11 text-sm font-bold shadow-md gap-2 bg-blue-600 hover:bg-blue-700 cursor-pointer disabled:opacity-70"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Registering Account...
+                    </>
+                  ) : (
+                    <>
+                      Complete Student Registration ({studentData.course}) <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
@@ -1077,8 +1071,20 @@ export function Signup() {
               )}
 
               <div className="pt-2">
-                <Button type="submit" className="w-full h-11 text-sm font-bold shadow-md gap-2 bg-blue-600 hover:bg-blue-700">
-                  <Send className="w-4 h-4" /> Submit Club Registration for Authority Approval
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full h-11 text-sm font-bold shadow-md gap-2 bg-blue-600 hover:bg-blue-700 cursor-pointer disabled:opacity-70"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Submitting Registration...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" /> Submit Club Registration for Authority Approval
+                    </>
+                  )}
                 </Button>
               </div>
             </form>

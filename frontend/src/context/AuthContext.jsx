@@ -1,87 +1,102 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { mockUsers } from '../data/mockData';
+import React, { createContext, useContext, useEffect, useCallback } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { 
+  restoreSession, 
+  loginUser, 
+  signupUser, 
+  registerCoordinatorAccount, 
+  logout as logoutAction, 
+  toggleRegisteredEvent, 
+  toggleJoinedClub, 
+  updateUser 
+} from '../store/slices/authSlice';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  
-  // Track registered events across prototype
-  const [registeredEventIds, setRegisteredEventIds] = useState(() => {
-    const saved = localStorage.getItem('mockUserRegisteredEvents');
-    return saved ? JSON.parse(saved) : ['e1', 'e2'];
-  });
+  const dispatch = useDispatch();
+  const { 
+    user, 
+    token, 
+    loading, 
+    registeredEventIds, 
+    joinedClubIds 
+  } = useSelector((state) => state.auth);
 
-  // Track joined clubs across prototype
-  const [joinedClubIds, setJoinedClubIds] = useState(() => {
-    const saved = localStorage.getItem('mockUserJoinedClubs');
-    return saved ? JSON.parse(saved) : ['c1'];
-  });
-
+  // Restore authenticated session on startup via Redux Toolkit thunk
   useEffect(() => {
-    const savedUser = localStorage.getItem('mockUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    dispatch(restoreSession());
+  }, [dispatch]);
+
+  const loginWithCredentials = async (email, password) => {
+    const resultAction = await dispatch(loginUser({ email, password }));
+    if (loginUser.fulfilled.match(resultAction)) {
+      return resultAction.payload.user;
     }
-  }, []);
-
-  const login = (roleType) => {
-    const selectedUser = mockUsers[roleType] || mockUsers['general_student'];
-    setUser(selectedUser);
-    localStorage.setItem('mockUser', JSON.stringify(selectedUser));
+    throw new Error(resultAction.payload || 'Invalid response from server.');
   };
 
-  const signup = (userData) => {
-    setUser(userData);
-    localStorage.setItem('mockUser', JSON.stringify(userData));
+  const signupWithCredentials = async (signupData) => {
+    const resultAction = await dispatch(signupUser(signupData));
+    if (signupUser.fulfilled.match(resultAction)) {
+      return resultAction.payload.user;
+    }
+    throw new Error(resultAction.payload || 'Invalid response from server.');
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('mockUser');
+  const registerCoordinator = async (coordinatorData) => {
+    const resultAction = await dispatch(registerCoordinatorAccount(coordinatorData));
+    if (registerCoordinatorAccount.fulfilled.match(resultAction)) {
+      return resultAction.payload;
+    }
+    throw new Error(resultAction.payload || 'Registration failed.');
   };
+
+  const logout = useCallback(() => {
+    dispatch(logoutAction());
+  }, [dispatch]);
 
   const registerForEvent = (eventId) => {
-    setRegisteredEventIds(prev => {
-      const next = prev.includes(eventId) ? prev : [...prev, eventId];
-      localStorage.setItem('mockUserRegisteredEvents', JSON.stringify(next));
-      return next;
-    });
+    if (!registeredEventIds.includes(eventId)) {
+      dispatch(toggleRegisteredEvent(eventId));
+    }
   };
 
   const unregisterFromEvent = (eventId) => {
-    setRegisteredEventIds(prev => {
-      const next = prev.filter(id => id !== eventId);
-      localStorage.setItem('mockUserRegisteredEvents', JSON.stringify(next));
-      return next;
-    });
+    if (registeredEventIds.includes(eventId)) {
+      dispatch(toggleRegisteredEvent(eventId));
+    }
   };
 
   const isRegistered = (eventId) => registeredEventIds.includes(eventId);
 
   const toggleJoinClub = (clubId) => {
-    setJoinedClubIds(prev => {
-      const next = prev.includes(clubId) ? prev.filter(id => id !== clubId) : [...prev, clubId];
-      localStorage.setItem('mockUserJoinedClubs', JSON.stringify(next));
-      return next;
-    });
+    dispatch(toggleJoinedClub(clubId));
   };
 
   const isClubJoined = (clubId) => joinedClubIds.includes(clubId);
 
+  const updateProfileUser = (updatedData) => {
+    dispatch(updateUser(updatedData));
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
-      login, 
-      signup,
-      logout,
-      registeredEventIds,
-      registerForEvent,
-      unregisterFromEvent,
-      isRegistered,
-      joinedClubIds,
-      toggleJoinClub,
-      isClubJoined
+      token, 
+      loading, 
+      loginWithCredentials, 
+      signupWithCredentials, 
+      registerCoordinator, 
+      logout, 
+      updateUser: updateProfileUser,
+      registeredEventIds, 
+      registerForEvent, 
+      unregisterFromEvent, 
+      isRegistered, 
+      joinedClubIds, 
+      toggleJoinClub, 
+      isClubJoined 
     }}>
       {children}
     </AuthContext.Provider>

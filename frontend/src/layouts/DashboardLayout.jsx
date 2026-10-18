@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../components/Card';
 import { 
@@ -17,9 +17,10 @@ import {
   BarChart3,
   User
 } from 'lucide-react';
+import { isCoordinatorRole, isStudentRole } from '../services/roles';
 
 export function DashboardLayout() {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -29,15 +30,60 @@ export function DashboardLayout() {
     navigate('/');
   };
 
-  if (!user) {
-    navigate('/login');
-    return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500 font-medium">Verifying session...</p>
+        </div>
+      </div>
+    );
   }
 
-  // Define links based on user role
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Ensure unknown roles are not granted access
+  if (!isCoordinatorRole(user.role) && !isStudentRole(user.role)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto font-bold text-lg">!</div>
+          <h2 className="text-xl font-bold text-gray-900">Access Denied</h2>
+          <p className="text-sm text-gray-500">
+            Your account role (<span className="font-semibold text-gray-800">{user.role || 'Unknown'}</span>) does not have access permissions for this portal.
+          </p>
+          <button
+            onClick={handleLogout}
+            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-sm transition-colors cursor-pointer"
+          >
+            Sign Out & Return Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Route-level role guards to prevent cross-dashboard access
+  const isStudent = isStudentRole(user.role);
+  const isCoordinator = isCoordinatorRole(user.role);
+
+  // If a student tries to access coordinator routes
+  if (isStudent && location.pathname.startsWith('/club-dashboard')) {
+    return <Navigate to="/student" replace />;
+  }
+
+  // If a coordinator tries to access student routes
+  if (isCoordinator && location.pathname.startsWith('/student')) {
+    return <Navigate to="/club-dashboard" replace />;
+  }
+
+  // Define links based on verified user role
   let links = [];
 
-  if (user.role === 'General Student') {
+  if (isStudent) {
     links = [
       { name: 'Dashboard', href: '/student', icon: LayoutDashboard },
       { name: 'My Profile', href: '/student/profile', icon: User },
@@ -86,7 +132,7 @@ export function DashboardLayout() {
         </div>
 
         {/* Club Spotlight Banner for Club Coordinators */}
-        {user.role !== 'General Student' && (
+        {isCoordinator && (
           <div className="px-5 py-2.5 bg-blue-50/60 border-b border-blue-100/70 flex items-center gap-2.5 flex-shrink-0">
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
               {(user.clubName || 'Byte Warriors').charAt(0)}

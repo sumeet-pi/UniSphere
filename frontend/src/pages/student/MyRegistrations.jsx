@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getStoredEvents, getStoredClubs } from '../../data/mockData';
+import { getStoredEvents } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent } from '../../components/Card';
 import { Badge } from '../../components/Badge';
@@ -36,7 +36,6 @@ export function MyRegistrations() {
 
   // Stored state
   const [allEvents, setAllEvents] = useState(() => getStoredEvents());
-  const [allClubs] = useState(() => getStoredClubs());
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'past'
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -486,7 +485,7 @@ export function MyRegistrations() {
               <div className="text-left bg-white p-3.5 rounded-xl border border-gray-200 space-y-2 text-xs">
                 <div className="flex justify-between border-b border-gray-100 pb-1.5">
                   <span className="text-gray-400">Student Name</span>
-                  <span className="font-bold text-gray-900">{user?.name || 'Vikram Singh'}</span>
+                  <span className="font-bold text-gray-900">{user?.name || 'Student'}</span>
                 </div>
                 <div className="flex justify-between border-b border-gray-100 pb-1.5">
                   <span className="text-gray-400">College Roll No</span>
@@ -573,7 +572,7 @@ export function MyRegistrations() {
               <div className="py-2 space-y-1">
                 <p className="text-xs text-gray-400 italic">This is proudly awarded to</p>
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-900 border-b border-gray-200 pb-2 inline-block px-8">
-                  {user?.name || 'Vikram Singh'}
+                  {user?.name || 'Student'}
                 </h3>
                 <p className="text-xs text-gray-600 font-mono mt-1">
                   Roll No: {user?.classRollNo || 'CS24089'} • {user?.course || 'B.Tech CSE'}

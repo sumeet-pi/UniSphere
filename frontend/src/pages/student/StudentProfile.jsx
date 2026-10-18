@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../context/AuthContext';
-import { getStoredClubs, getStoredEvents, getStoredStudentProfile } from '../../data/mockData';
+import { fetchStudentProfile, updateStudentProfile } from '../../store/slices/profileSlice';
+import { getStoredClubs, getStoredStudentProfile } from '../../data/mockData';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Badge } from '../../components/Badge';
@@ -57,15 +59,21 @@ function LinkedinIcon(props) {
 }
 
 export function StudentProfile() {
-  const { user, signup, joinedClubIds, registeredEventIds } = useAuth();
+  const dispatch = useDispatch();
+  const { user: authUser, joinedClubIds } = useAuth();
+  const reduxProfile = useSelector((state) => state.profile.data);
+  const isSaving = useSelector((state) => state.profile.saving);
 
-  // Load custom student profile from localStorage or fallback to auth user / defaults
+  // Derive initial canonical profile without hardcoding mock names
   const getInitialProfile = () => {
-    const stored = getStoredStudentProfile();
+    const stored = reduxProfile || getStoredStudentProfile() || {};
     return {
       ...stored,
-      name: user?.name || stored.name || 'Vikram Singh',
-      email: user?.email || stored.email || 'vikram.singh@college.edu'
+      name: authUser?.name || stored.name || 'Student',
+      email: authUser?.email || stored.email || '',
+      avatar: authUser?.avatarUrl || authUser?.avatar || stored.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+      skills: Array.isArray(stored.skills) ? stored.skills : ['Python', 'Data Structures', 'Git', 'FastAPI'],
+      interests: Array.isArray(stored.interests) ? stored.interests : ['Coding Hackathons', 'Open Source', 'Robotics'],
     };
   };
 
@@ -77,24 +85,46 @@ export function StudentProfile() {
   const [newSkillInput, setNewSkillInput] = useState('');
   const [newInterestInput, setNewInterestInput] = useState('');
 
+  // Fetch latest canonical profile from server on mount
+  useEffect(() => {
+    dispatch(fetchStudentProfile());
+  }, [dispatch]);
+
+  // Sync profile when redux updates
+  useEffect(() => {
+    if (reduxProfile || authUser) {
+      const updated = {
+        ...(reduxProfile || {}),
+        name: authUser?.name || reduxProfile?.name || profile.name,
+        email: authUser?.email || reduxProfile?.email || profile.email,
+        avatar: authUser?.avatarUrl || authUser?.avatar || reduxProfile?.avatar || profile.avatar,
+        skills: Array.isArray(reduxProfile?.skills) ? reduxProfile.skills : profile.skills,
+        interests: Array.isArray(reduxProfile?.interests) ? reduxProfile.interests : profile.interests,
+      };
+      setProfile(prev => ({ ...prev, ...updated }));
+      if (!isEditing) {
+        setFormData(prev => ({ ...prev, ...updated }));
+      }
+    }
+  }, [reduxProfile, authUser, isEditing]);
+
   // Associated datasets
   const allClubs = getStoredClubs();
-  const allEvents = getStoredEvents();
-  const myClubs = allClubs.filter(c => joinedClubIds.includes(c.id));
-  const myEvents = allEvents.filter(e => registeredEventIds.includes(e.id));
-  const completedEvents = myEvents.filter(e => e.status === 'Past');
+  const myClubs = allClubs.filter(c => (joinedClubIds || []).includes(c.id));
 
-  // Handle Edit Save
-  const handleSaveProfile = (e) => {
+  // Handle Edit Save using Redux Toolkit
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     setProfile(formData);
-    localStorage.setItem('mockStudentProfile', JSON.stringify(formData));
-    if (signup) {
-      signup({ ...user, ...formData });
-    }
+    
+    // Dispatch to Redux store (which calls backend API and updates auth user)
+    const resultAction = await dispatch(updateStudentProfile(formData));
     setIsEditing(false);
-    setToastMessage('Student profile updated successfully!');
-    setTimeout(() => setToastMessage(null), 3500);
+
+    if (updateStudentProfile.fulfilled.match(resultAction)) {
+      setToastMessage('Student profile updated successfully!');
+      setTimeout(() => setToastMessage(null), 3500);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -219,9 +249,10 @@ export function StudentProfile() {
                 </Button>
                 <Button 
                   onClick={handleSaveProfile} 
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs sm:text-sm gap-1.5 shadow-md"
+                  disabled={isSaving}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs sm:text-sm gap-1.5 shadow-md disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" /> Save Changes
+                  <Save className="w-4 h-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
             )}

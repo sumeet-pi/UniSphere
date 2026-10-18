@@ -3,10 +3,11 @@ import { Outlet, Link } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { GraduationCap, LayoutDashboard, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getDashboardPathForRole } from '../services/roles';
 
 export function PublicLayout() {
   const { user, logout } = useAuth();
-  const dashboardPath = user?.role === 'General Student' ? '/student' : '/club-dashboard';
+  const dashboardPath = getDashboardPathForRole(user?.role) || '/student';
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

@@ -1,11 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  getStoredClubs, 
-  approveClub, 
-  rejectClub,
-  getClubApprovalStatus 
-} from '../../data/mockData';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Badge } from '../../components/Badge';
@@ -40,11 +36,19 @@ import {
 } from 'lucide-react';
 
 export function AdminDashboard() {
-  const navigate = useNavigate();
+  const { user, loginWithCredentials, logout } = useAuth();
 
-  // Authentication State (Session protected)
+  // Authentication State — use real backend auth token
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return sessionStorage.getItem('unisphere_admin_authenticated') === 'true';
+    const token = localStorage.getItem('unisphere_token');
+    const savedUser = localStorage.getItem('unisphere_user');
+    if (token && savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        return u.role === 'Admin';
+      } catch { return false; }
+    }
+    return false;
   });
 
   // Auth gate form state
@@ -52,9 +56,11 @@ export function AdminDashboard() {
   const [adminPasscode, setAdminPasscode] = useState('');
   const [authError, setAuthError] = useState('');
   const [showGatePasscode, setShowGatePasscode] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Admin Dashboard State
-  const [allClubsList, setAllClubsList] = useState(() => getStoredClubs(false));
+  const [allClubsList, setAllClubsList] = useState([]);
+  const [isLoadingClubs, setIsLoadingClubs] = useState(false);
   const [activeTab, setActiveTab] = useState('requested'); // 'requested' | 'all' | 'approved' | 'rejected'
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
@@ -65,15 +71,58 @@ export function AdminDashboard() {
   const [customRejectionReason, setCustomRejectionReason] = useState('');
   const [toast, setToast] = useState(null);
 
-  // Sync state on storage events
-  const refreshClubs = () => {
-    setAllClubsList(getStoredClubs(false));
-  };
+  // Fetch clubs from real backend API
+  const refreshClubs = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setIsLoadingClubs(true);
+    try {
+      // Fetch pending clubs from admin API
+      const pendingRes = await api.getPendingClubs();
+      const pendingClubs = (pendingRes?.data || pendingRes || []).map(c => ({
+        ...c,
+        approvalStatus: c.approvalStatus || 'requested',
+      }));
+
+      // Fetch all approved clubs from public API 
+      let approvedClubs = [];
+      try {
+        const approvedRes = await api.getClubs();
+        const approvedData = approvedRes?.data || approvedRes || [];
+        approvedClubs = approvedData.map(c => ({
+          ...c,
+          approvalStatus: c.approvalStatus || 'approved',
+        }));
+      } catch {
+        // If fetching approved clubs fails, continue with pending only
+      }
+
+      // Merge into single list, deduplicate by id
+      const clubMap = new Map();
+      pendingClubs.forEach(c => clubMap.set(c.id, c));
+      approvedClubs.forEach(c => {
+        if (!clubMap.has(c.id)) clubMap.set(c.id, c);
+      });
+      setAllClubsList(Array.from(clubMap.values()));
+    } catch (err) {
+      console.error('Failed to fetch clubs:', err);
+      triggerToast('error', 'Fetch Error', err.message || 'Failed to load clubs from server.');
+    } finally {
+      setIsLoadingClubs(false);
+    }
+  }, [isAuthenticated]);
+
+  // Sync authentication state with user context
+  useEffect(() => {
+    if (user && user.role === 'Admin') {
+      setIsAuthenticated(true);
+    }
+  }, [user]);
 
   useEffect(() => {
-    window.addEventListener('storage', refreshClubs);
-    return () => window.removeEventListener('storage', refreshClubs);
-  }, []);
+    if (isAuthenticated) {
+      refreshClubs();
+    }
+  }, [isAuthenticated, refreshClubs]);
 
   const triggerToast = (type, title, message) => {
     setToast({ type, title, message });
@@ -82,54 +131,74 @@ export function AdminDashboard() {
     }, 5500);
   };
 
-  // Handle Admin Gate Authentication
-  const handleAdminGateLogin = (e) => {
+  // Handle Admin Gate Authentication — real backend login
+  const handleAdminGateLogin = async (e) => {
     e?.preventDefault();
     setAuthError('');
+    setIsLoggingIn(true);
 
-    const cleanPass = adminPasscode.trim();
     const cleanMail = adminEmail.trim().toLowerCase();
+    const cleanPass = adminPasscode.trim();
 
-    // Default institutional master keys
-    if (
-      cleanPass === 'ADMIN2026' || 
-      cleanPass === 'Admin@2026' || 
-      (cleanMail.includes('admin') && cleanPass.length >= 6)
-    ) {
-      sessionStorage.setItem('unisphere_admin_authenticated', 'true');
-      setIsAuthenticated(true);
-      triggerToast('success', 'Admin Access Granted', 'Welcome to the UniSphere Higher Authority Governance Console.');
-    } else {
-      setAuthError('Invalid administrator credentials or master passcode. Please enter valid Dean/DSW clearance key.');
+    try {
+      const loggedUser = await loginWithCredentials(cleanMail, cleanPass);
+      if (loggedUser && loggedUser.role === 'Admin') {
+        setIsAuthenticated(true);
+        triggerToast('success', 'Admin Access Granted', 'Welcome to the UniSphere Higher Authority Governance Console.');
+      } else {
+        setAuthError(`Access denied. Your account role "${loggedUser?.role || 'Unknown'}" does not have administrative privileges. Only Admin accounts can access this console.`);
+        logout();
+      }
+    } catch (err) {
+      setAuthError(err.message || 'Invalid administrator credentials. Please enter valid admin email and password.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
-  // 1-Click Demo Unlock for Reviewers
-  const handleQuickUnlock = () => {
-    setAdminEmail('dsw.dean@college.edu');
-    setAdminPasscode('ADMIN2026');
-    sessionStorage.setItem('unisphere_admin_authenticated', 'true');
-    setIsAuthenticated(true);
-    triggerToast('success', 'Authenticated as DSW Dean', 'Cleared with Dean of Student Welfare administrative master credentials.');
+  // 1-Click Demo Unlock for Reviewers — uses real admin credentials
+  const handleQuickUnlock = async () => {
+    setAdminEmail('admin@college.edu');
+    setAdminPasscode('Admin@2026');
+    setIsLoggingIn(true);
+    try {
+      const loggedUser = await loginWithCredentials('admin@college.edu', 'Admin@2026');
+      if (loggedUser && loggedUser.role === 'Admin') {
+        setIsAuthenticated(true);
+        triggerToast('success', 'Authenticated as Admin', 'Cleared with University Administrator credentials.');
+      } else {
+        setAuthError('Quick unlock failed. Admin account may not exist or role is incorrect.');
+        logout();
+      }
+    } catch (err) {
+      setAuthError(err.message || 'Quick unlock failed. Backend may be unreachable.');
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
-  // Logout / Lock Gate
+  // Logout / Lock Gate — real logout
   const handleLockAdminGate = () => {
-    sessionStorage.removeItem('unisphere_admin_authenticated');
+    logout();
     setIsAuthenticated(false);
+    setAllClubsList([]);
     setAdminPasscode('');
     setAdminEmail('');
   };
 
-  // Action: Approve Club
-  const handleApprove = (club) => {
-    approveClub(club.id);
-    refreshClubs();
-    triggerToast(
-      'success',
-      'Club Charter Approved!',
-      `"${club.name}" is now approved. The coordinator can log into the club dashboard, and the club is visible to students.`
-    );
+  // Action: Approve Club — real API call
+  const handleApprove = async (club) => {
+    try {
+      await api.approveClub(club.id);
+      triggerToast(
+        'success',
+        'Club Charter Approved!',
+        `"${club.name}" is now approved. The coordinator can log into the club dashboard, and the club is visible to students.`
+      );
+      refreshClubs();
+    } catch (err) {
+      triggerToast('error', 'Approval Failed', err.message || 'Failed to approve club.');
+    }
   };
 
   // Action: Open Reject Modal
@@ -138,18 +207,22 @@ export function AdminDashboard() {
     setCustomRejectionReason('Faculty advisor endorsement letter is missing, and campus policy restricts unaccredited societies.');
   };
 
-  // Action: Confirm Reject
-  const handleConfirmReject = () => {
+  // Action: Confirm Reject — real API call
+  const handleConfirmReject = async () => {
     if (!rejectingClub) return;
     const reason = customRejectionReason.trim() || 'Application does not comply with institutional standards.';
-    rejectClub(rejectingClub.id, reason);
-    refreshClubs();
-    setRejectingClub(null);
-    triggerToast(
-      'error',
-      'Club Registration Rejected',
-      `"${rejectingClub.name}" has been marked as rejected with reason recorded.`
-    );
+    try {
+      await api.rejectClub(rejectingClub.id, { rejectionReason: reason });
+      triggerToast(
+        'error',
+        'Club Registration Rejected',
+        `"${rejectingClub.name}" has been marked as rejected with reason recorded.`
+      );
+      setRejectingClub(null);
+      refreshClubs();
+    } catch (err) {
+      triggerToast('error', 'Rejection Failed', err.message || 'Failed to reject club.');
+    }
   };
 
   // Filtered Clubs
@@ -281,9 +354,10 @@ export function AdminDashboard() {
                 {/* Submit Action */}
                 <Button 
                   type="submit" 
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold h-11 text-xs sm:text-sm gap-2 shadow-lg shadow-blue-600/20 cursor-pointer"
+                  disabled={isLoggingIn}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold h-11 text-xs sm:text-sm gap-2 shadow-lg shadow-blue-600/20 cursor-pointer disabled:opacity-70"
                 >
-                  <KeyRound className="w-4 h-4" /> Authenticate & Unlock Console
+                  <KeyRound className="w-4 h-4" /> {isLoggingIn ? 'Authenticating...' : 'Authenticate & Unlock Console'}
                 </Button>
               </form>
 
@@ -544,7 +618,12 @@ export function AdminDashboard() {
         </div>
 
         {/* List of Clubs with Complete Details */}
-        {filteredClubs.length === 0 ? (
+        {isLoadingClubs ? (
+          <div className="bg-slate-950 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
+            <RefreshCw className="w-8 h-8 text-blue-400 animate-spin mx-auto" />
+            <p className="text-xs text-slate-400 font-medium">Fetching proposals from database...</p>
+          </div>
+        ) : filteredClubs.length === 0 ? (
           <div className="bg-slate-950 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
             <div className="w-14 h-14 bg-slate-900 rounded-2xl flex items-center justify-center mx-auto text-slate-500">
               <CheckCircle2 className="w-7 h-7" />

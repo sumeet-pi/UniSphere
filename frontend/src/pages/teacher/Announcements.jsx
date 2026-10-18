@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { announcements, clubs } from '../../data/mockData';
+import { announcements } from '../../data/mockData';
 import { Card, CardContent, CardHeader } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Badge } from '../../components/Badge';

@@ -20,11 +20,13 @@ import {
   Clock,
   XCircle,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
+import { getDashboardPathForRole } from '../../services/roles';
 
 export function Login() {
-  const { login } = useAuth();
+  const { loginWithCredentials } = useAuth();
   const navigate = useNavigate();
 
   // Active role tab: 'student' or 'club'
@@ -36,6 +38,7 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Toast state: { show: boolean, type: 'warning' | 'error' | 'success', title: string, message: string }
   const [toast, setToast] = useState(null);
@@ -76,18 +79,14 @@ export function Login() {
   // Coordinator login verification checking approval status
   const handleCoordinatorLoginAttempt = (coordRoleOrAccount) => {
     let clubId = 'c1';
-    let userRoleKey = 'club_coordinator';
     
     if (typeof coordRoleOrAccount === 'string') {
       if (coordRoleOrAccount === 'coordinator_requested') {
         clubId = 'c_pending';
-        userRoleKey = 'coordinator_requested';
       } else if (coordRoleOrAccount === 'coordinator_rejected') {
         clubId = 'c_rejected';
-        userRoleKey = 'coordinator_rejected';
       } else {
         clubId = 'c1';
-        userRoleKey = 'club_coordinator';
       }
     } else if (coordRoleOrAccount?.clubId) {
       clubId = coordRoleOrAccount.clubId;
@@ -101,7 +100,7 @@ export function Login() {
         'not yet approved',
         `Your club "${approvalInfo.clubName}" is currently pending review by the university administration. Access to the club coordinator dashboard will unlock once approved.`
       );
-      return;
+      return false;
     }
 
     if (approvalInfo.approvalStatus === 'rejected') {
@@ -110,32 +109,36 @@ export function Login() {
         'your club was rejected',
         `Your club "${approvalInfo.clubName}" registration was rejected by university administration. Reason: ${approvalInfo.rejectionReason || 'Non-compliance with campus society guidelines.'}`
       );
-      return;
+      return false;
     }
 
-    // Approved club: log in and navigate to coordinator dashboard
-    login(userRoleKey);
-    navigate('/club-dashboard');
+    return true;
   };
 
-  // Direct 1-click login handler
-  const handleDirectLogin = (roleType) => {
-    if (roleType === 'club_coordinator' || roleType === 'teacher' || roleType === 'club_student') {
-      handleCoordinatorLoginAttempt(roleType);
-    } else if (roleType === 'coordinator_requested' || roleType === 'coordinator_rejected') {
-      handleCoordinatorLoginAttempt(roleType);
+  // Direct 1-click login handler for rapid testing/demos
+  const handleDirectLogin = async (roleType) => {
+    if (roleType === 'club_coordinator') {
+      setEmail('coordinator@college.edu');
+      setPassword('Admin@2026');
+      setRole('club');
+    } else if (roleType === 'coordinator_requested') {
+      handleCoordinatorLoginAttempt('coordinator_requested');
+    } else if (roleType === 'coordinator_rejected') {
+      handleCoordinatorLoginAttempt('coordinator_rejected');
     } else {
-      login(roleType);
-      navigate('/student');
+      setEmail('vikram.cs24@college.edu');
+      setPassword('Password@2026');
+      setRole('student');
     }
   };
 
-  // Form submit handler
-  const handleSubmit = (e) => {
+  // Form submit handler with real backend authentication
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (!email.trim()) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
       setError('Please enter your college email address.');
       return;
     }
@@ -145,36 +148,39 @@ export function Login() {
       return;
     }
 
-    if (role === 'club') {
-      const cleanEmail = email.trim().toLowerCase();
-      // Check preset requested demo
-      if (cleanEmail.includes('fintech') || cleanEmail.includes('verma') || cleanEmail.includes('pending')) {
-        handleCoordinatorLoginAttempt('coordinator_requested');
-        return;
-      }
-      // Check preset rejected demo
-      if (cleanEmail.includes('gaming') || cleanEmail.includes('roy') || cleanEmail.includes('rejected')) {
-        handleCoordinatorLoginAttempt('coordinator_rejected');
-        return;
-      }
+    setIsSubmitting(true);
+    try {
+      const loggedUser = await loginWithCredentials(trimmedEmail, password);
+      const destination = getDashboardPathForRole(loggedUser.role);
 
-      // Check dynamically registered coordinators in localStorage
-      try {
-        const customAccounts = JSON.parse(localStorage.getItem('mockRegisteredCoordinators') || '[]');
-        const matched = customAccounts.find(a => a.email.toLowerCase() === cleanEmail);
-        if (matched) {
-          handleCoordinatorLoginAttempt(matched);
-          return;
-        }
-      } catch (err) {
-        console.error(err);
+      if (destination) {
+        navigate(destination);
+      } else {
+        // Safe access-denied for unknown or missing roles
+        setError(`Access Denied: Unrecognized account role "${loggedUser?.role}". Please contact system administration.`);
       }
+    } catch (err) {
+      const errorCode = err.code || '';
+      const errorMessage = err.message || 'Login failed. Please check your credentials.';
 
-      // Default to approved coordinator
-      handleCoordinatorLoginAttempt('club_coordinator');
-    } else {
-      login('general_student');
-      navigate('/student');
+      // Handle specific backend error codes with user-friendly toasts
+      if (errorCode === 'ACCOUNT_PENDING_APPROVAL' || errorCode === 'CLUB_NOT_YET_APPROVED') {
+        triggerToast(
+          'warning',
+          'Account Pending Approval',
+          'Your club registration is currently pending review by the university administration. You will receive access once approved.'
+        );
+      } else if (errorCode === 'CLUB_REJECTED') {
+        triggerToast(
+          'error',
+          'Club Application Rejected',
+          errorMessage || 'Your club registration was rejected by university administration.'
+        );
+      } else {
+        setError(errorMessage);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -293,6 +299,7 @@ export function Login() {
                 setError('');
               }}
               required 
+              disabled={isSubmitting}
             />
 
             {/* Password with Eye Toggle */}
@@ -311,7 +318,8 @@ export function Login() {
                     setError('');
                   }}
                   required
-                  className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm"
+                  disabled={isSubmitting}
+                  className="block w-full rounded-lg border border-gray-300 px-3.5 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
@@ -331,6 +339,7 @@ export function Login() {
                   type="checkbox" 
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={isSubmitting}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer" 
                 />
                 <span className="text-gray-600 text-xs sm:text-sm">Remember me</span>
@@ -354,8 +363,20 @@ export function Login() {
 
             {/* Active Sign In Button */}
             <div className="pt-2">
-              <Button type="submit" className="w-full h-11 text-sm font-bold shadow-md gap-2 bg-blue-600 hover:bg-blue-700 cursor-pointer">
-                Sign In as {role === 'student' ? 'Student' : 'Club Coordinator'} <ArrowRight className="w-4 h-4" />
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-11 text-sm font-bold shadow-md gap-2 bg-blue-600 hover:bg-blue-700 cursor-pointer disabled:opacity-70"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Signing In...
+                  </>
+                ) : (
+                  <>
+                    Sign In as {role === 'student' ? 'Student' : 'Club Coordinator'} <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </Button>
             </div>
           </form>
@@ -454,7 +475,6 @@ export function Login() {
               </div>
             </Button>
           </div>
-
           {/* Bottom link to Signup */}
           <div className="pt-4 border-t border-gray-100 text-center text-sm text-gray-500">
             Don't have an account yet?{' '}
@@ -545,4 +565,3 @@ export function Login() {
     </div>
   );
 }
-

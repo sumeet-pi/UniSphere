@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 
 // Layouts
@@ -32,20 +33,26 @@ import { Analytics } from './pages/club/Analytics';
 // Separate Protected Admin Governance Console
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 
-function PlaceholderPage({ title }) {
-  return (
-    <div className="flex items-center justify-center h-[60vh]">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-        <p className="text-gray-500 mt-2">This page is part of the prototype but not fully implemented yet.</p>
-      </div>
-    </div>
-  );
-}
-
 function App() {
   return (
     <AuthProvider>
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3500,
+          style: {
+            background: '#ffffff',
+            color: '#0f172a',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
+            fontSize: '13px',
+            fontWeight: '600',
+            padding: '12px 16px',
+            zIndex: 99999,
+          },
+        }}
+      />
       <BrowserRouter>
         <Routes>
           {/* Public Routes */}

@@ -46,7 +46,6 @@ export function Announcements() {
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [toastMessage, setToastMessage] = useState('');
-  const [copiedId, setCopiedId] = useState(null);
 
   // Form state for creating a new announcement
   const [formData, setFormData] = useState({
@@ -123,9 +122,7 @@ export function Announcements() {
 
   const handleCopyText = (announcement) => {
     navigator.clipboard?.writeText(`${announcement.title}\n\n${announcement.content}\n\nPublished by ${club.name} on UniSphere`);
-    setCopiedId(announcement.id);
     showToast('Copied announcement text to clipboard!');
-    setTimeout(() => setCopiedId(null), 2000);
   };
 
   // Filter announcements

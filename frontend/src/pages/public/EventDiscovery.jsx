@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   getStoredEvents, 
-  getStoredClubs, 
   searchCampusStudents, 
   isStudentClubMember, 
   isUserClubMember 
@@ -35,17 +34,15 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 
 export function EventDiscovery() {
-  const { user, isRegistered, registerForEvent, unregisterFromEvent, joinedClubIds = [] } = useAuth();
+  const { user, isRegistered, registerForEvent, joinedClubIds = [] } = useAuth();
   const location = useLocation();
   const isInsideDashboard = location.pathname.startsWith('/student');
   const basePath = isInsideDashboard ? '/student' : '';
 
   const isCoordinator = user?.role === 'Club Coordinator' || user?.role === 'teacher' || user?.role === 'club_student';
-  const isLoggedIn = !!user;
 
-  // Stored events & clubs
+  // Stored events
   const [allEvents, setAllEvents] = useState(() => getStoredEvents());
-  const [allClubs] = useState(() => getStoredClubs());
 
   // Storage listener for live reactivity
   useEffect(() => {
@@ -287,7 +284,6 @@ export function EventDiscovery() {
         {filteredEvents.map(event => {
           const registered = isRegistered ? isRegistered(event.id) : false;
           const stage = getEventStage(event);
-          const club = allClubs.find(c => c.id === event.clubId);
 
           return (
             <div 
@@ -612,7 +608,7 @@ export function EventDiscovery() {
                       <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 text-gray-700">
                         <div>
                           <span className="text-gray-400 block text-[10px]">Student Name</span>
-                          <span className="font-semibold">{user?.name || 'Vikram Singh'}</span>
+                          <span className="font-semibold">{user?.name || 'Student'}</span>
                         </div>
                         <div>
                           <span className="text-gray-400 block text-[10px]">College ID</span>
@@ -624,7 +620,7 @@ export function EventDiscovery() {
                         </div>
                         <div>
                           <span className="text-gray-400 block text-[10px]">College Email</span>
-                          <span className="font-semibold truncate block">{user?.email || 'vikram.singh@college.edu'}</span>
+                          <span className="font-semibold truncate block">{user?.email || ''}</span>
                         </div>
                       </div>
                     </div>
@@ -738,7 +734,7 @@ export function EventDiscovery() {
                               </div>
                               <div>
                                 <p className="font-bold text-gray-900 flex items-center gap-1.5">
-                                  {user?.name || 'Vikram Singh'}
+                                  {user?.name || 'Student'}
                                   <span className="text-[10px] text-blue-700 font-bold bg-blue-100 px-1.5 py-0.2 rounded">Team Lead</span>
                                 </p>
                                 <p className="text-[10px] text-gray-500 font-mono">{user?.classRollNo || 'CS24089'} • {user?.course || 'B.Tech CSE'}</p>
@@ -890,7 +886,7 @@ export function EventDiscovery() {
             <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-left space-y-2 text-xs">
               <div className="flex justify-between border-b border-gray-200 pb-2">
                 <span className="text-gray-500">Attendee:</span>
-                <span className="font-bold text-gray-900">{user?.name || 'Vikram Singh'}</span>
+                <span className="font-bold text-gray-900">{user?.name || 'Student'}</span>
               </div>
               <div className="flex justify-between border-b border-gray-200 pb-2">
                 <span className="text-gray-500">College Roll No:</span>
