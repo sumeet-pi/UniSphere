@@ -4,6 +4,14 @@ from pydantic_settings import BaseSettings
 from pydantic import Field
 
 
+import os
+from pathlib import Path
+
+# Resolve backend root where .env lives
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+_ENV_PATH = _BACKEND_DIR / ".env"
+
+
 class Settings(BaseSettings):
     """All configuration is read from environment variables / .env file."""
 
@@ -26,10 +34,11 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = Field(default="http://localhost:5173")
 
     model_config = {
-        "env_file": ".env",
+        "env_file": (str(_ENV_PATH), ".env"),
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }
+
 
 
 # Singleton — imported throughout the application
