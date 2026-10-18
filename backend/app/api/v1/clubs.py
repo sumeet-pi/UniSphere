@@ -168,6 +168,28 @@ def update_club_profile(
     if not club:
         return json_error_response(status_code=404, error="NOT_FOUND", message="Club not found.")
 
+    user_role_lower = (user.role or "").lower()
+    is_admin = user_role_lower in ("admin", "administrator")
+    is_club_coord = (
+        club.faculty_advisor_id == user.id
+        or (club.email and club.email.lower() == user.email.lower())
+    )
+    if not is_club_coord and not is_admin:
+        has_coord_mem = db.query(ClubMembership).filter(
+            ClubMembership.club_id == club_id,
+            ClubMembership.user_id == user.id,
+            ClubMembership.status == "ACTIVE",
+            ClubMembership.role.in_(["COORDINATOR", "HEAD_COORDINATOR", "coordinator", "faculty_head", "LEAD"])
+        ).first()
+        if not has_coord_mem:
+            return json_error_response(
+                status_code=403,
+                error="FORBIDDEN",
+                message="You do not have administrative permission to modify this club's details.",
+                path=f"/api/v1/clubs/{club_id}",
+            )
+
+
     if payload.name:
         club.name = payload.name.strip()
     if payload.clubCode:

@@ -14,9 +14,64 @@ from app.models.registration import EventRegistration
 from app.core.security import verify_password, hash_password, create_access_token
 from app.core.responses import json_success_response, json_error_response
 from app.core.dependencies import get_current_user
-from app.schemas.unified import LoginRequest, StudentSignupRequest
+from app.schemas.unified import LoginRequest, StudentSignupRequest, UserUpdateRequest
 
 router = APIRouter()
+
+
+
+def _build_user_context(user: User, db: Session) -> dict:
+    registered_event_ids = [
+        r.event_id for r in db.query(EventRegistration).filter(
+            EventRegistration.user_id == user.id,
+            EventRegistration.status != "CANCELLED"
+        ).all()
+    ]
+    joined_club_ids = [
+        m.club_id for m in db.query(ClubMembership).filter(
+            ClubMembership.user_id == user.id,
+            ClubMembership.status == "ACTIVE"
+        ).all()
+    ]
+
+    managed_club = db.query(Club).filter(
+        (Club.email == user.email) | (Club.faculty_advisor_id == user.id)
+    ).first()
+
+    club_role = None
+    if not managed_club:
+        mem = db.query(ClubMembership).filter(
+            ClubMembership.user_id == user.id,
+            ClubMembership.role.in_(["COORDINATOR", "HEAD_COORDINATOR", "coordinator", "faculty_head"])
+        ).first()
+        if mem:
+            managed_club = db.query(Club).filter(Club.id == mem.club_id).first()
+            club_role = mem.designation or "Club Coordinator"
+    else:
+        mem = db.query(ClubMembership).filter(
+            ClubMembership.user_id == user.id,
+            ClubMembership.club_id == managed_club.id
+        ).first()
+        club_role = (mem.designation if mem else None) or "Club Coordinator"
+
+    is_coordinator_user = (user.role or "").lower() in ("organizer", "club_coordinator", "faculty_head", "faculty")
+
+    return {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "phone": user.phone,
+        "role": user.role,
+        "avatarUrl": user.avatar_url,
+        "registeredEventIds": registered_event_ids,
+        "joinedClubIds": joined_club_ids,
+        "clubId": managed_club.id if managed_club else None,
+        "managedClubId": managed_club.id if managed_club else None,
+        "clubName": managed_club.name if managed_club else None,
+        "clubCode": managed_club.club_code if managed_club else None,
+        "department": managed_club.department if managed_club else None,
+        "clubRole": club_role or ("Club Coordinator" if is_coordinator_user else "General Student"),
+    }
 
 
 @router.post("/login")
@@ -78,41 +133,18 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 
     token = create_access_token({"sub": user.id, "email": user.email, "role": user.role})
 
-    # Retrieve registered event IDs and joined club IDs
-    registered_event_ids = [
-        r.event_id for r in db.query(EventRegistration).filter(
-            EventRegistration.user_id == user.id,
-            EventRegistration.status != "CANCELLED"
-        ).all()
-    ]
-    joined_club_ids = [
-        m.club_id for m in db.query(ClubMembership).filter(
-            ClubMembership.user_id == user.id,
-            ClubMembership.status == "ACTIVE"
-        ).all()
-    ]
-
     return json_success_response(
         data={
             "token": token,
             "refreshToken": f"refresh-{user.id}-{int(datetime.now(timezone.utc).timestamp())}",
             "expiresIn": 86400,
-            "user": {
-                "id": user.id,
-                "name": user.name,
-                "email": user.email,
-                "role": user.role,
-                "avatarUrl": user.avatar_url,
-                "registeredEventIds": registered_event_ids,
-                "joinedClubIds": joined_club_ids,
-                "clubId": managed_club.id if managed_club else None,
-                "managedClubId": managed_club.id if managed_club else None,
-                "clubName": managed_club.name if managed_club else None,
-            }
+            "user": _build_user_context(user, db),
         },
         message="Authentication successful",
         status_code=200,
     )
+
+
 
 
 @router.post("/signup")
@@ -193,43 +225,58 @@ def signup(payload: StudentSignupRequest, db: Session = Depends(get_db)):
 @router.get("/me")
 def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Return currently authenticated session data."""
-    registered_event_ids = [
-        r.event_id for r in db.query(EventRegistration).filter(
-            EventRegistration.user_id == user.id,
-            EventRegistration.status != "CANCELLED"
-        ).all()
-    ]
-    joined_club_ids = [
-        m.club_id for m in db.query(ClubMembership).filter(
-            ClubMembership.user_id == user.id,
-            ClubMembership.status == "ACTIVE"
-        ).all()
-    ]
-
-    managed_club = db.query(Club).filter(
-        (Club.email == user.email) | (Club.faculty_advisor_id == user.id)
-    ).first()
-
-    if not managed_club:
-        mem = db.query(ClubMembership).filter(
-            ClubMembership.user_id == user.id,
-            ClubMembership.role.in_(["COORDINATOR", "HEAD_COORDINATOR", "coordinator", "faculty_head"])
-        ).first()
-        if mem:
-            managed_club = db.query(Club).filter(Club.id == mem.club_id).first()
-
     return json_success_response(
-        data={
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "role": user.role,
-            "avatarUrl": user.avatar_url,
-            "registeredEventIds": registered_event_ids,
-            "joinedClubIds": joined_club_ids,
-            "clubId": managed_club.id if managed_club else None,
-            "managedClubId": managed_club.id if managed_club else None,
-            "clubName": managed_club.name if managed_club else None,
-        },
+        data=_build_user_context(user, db),
         status_code=200,
     )
+
+
+@router.put("/me")
+def update_me(
+    payload: UserUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update authenticated user's own personal profile (name, phone, email, avatar)."""
+    if payload.name is not None:
+        trimmed_name = payload.name.strip()
+        if len(trimmed_name) < 2:
+            return json_error_response(
+                status_code=422,
+                error="VALIDATION_ERROR",
+                message="Name must be at least 2 characters long.",
+                path="/api/v1/auth/me",
+            )
+        user.name = trimmed_name
+
+    if payload.phone is not None:
+        user.phone = payload.phone.strip() if payload.phone else None
+
+    if payload.avatarUrl is not None:
+        user.avatar_url = payload.avatarUrl.strip() if payload.avatarUrl else None
+
+    if payload.email is not None:
+        clean_email = payload.email.strip().lower()
+        if clean_email != user.email.lower():
+            existing = db.query(User).filter(
+                User.email.ilike(clean_email),
+                User.id != user.id,
+            ).first()
+            if existing:
+                return json_error_response(
+                    status_code=409,
+                    error="EMAIL_ALREADY_EXISTS",
+                    message="An account with this email address already exists.",
+                    path="/api/v1/auth/me",
+                )
+            user.email = clean_email
+
+    db.commit()
+    db.refresh(user)
+
+    return json_success_response(
+        data=_build_user_context(user, db),
+        message="Profile updated successfully",
+        status_code=200,
+    )
+

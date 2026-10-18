@@ -33,12 +33,24 @@ class UserContextResponse(BaseModel):
     name: str
     email: str
     role: str
+    phone: Optional[str] = None
     avatarUrl: Optional[str] = None
     registeredEventIds: List[str] = Field(default_factory=list)
     joinedClubIds: List[str] = Field(default_factory=list)
     clubId: Optional[str] = None
     managedClubId: Optional[str] = None
     clubName: Optional[str] = None
+    clubCode: Optional[str] = None
+    department: Optional[str] = None
+    clubRole: Optional[str] = None
+
+
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=150)
+    phone: Optional[str] = None
+    email: Optional[EmailStr] = None
+    avatarUrl: Optional[str] = None
+
 
 
 # ============================================================================

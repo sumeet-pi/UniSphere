@@ -53,13 +53,15 @@ export function Tasks() {
   const [editingTask, setEditingTask] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
 
+  const coordinatorAssignee = user?.name ? `${user.name} (${user.clubRole || 'Club Coordinator'})` : 'Dr. Vijay Samyal (Club Coordinator)';
+
   // Form state for creating a new task
   const [taskForm, setTaskForm] = useState({
     title: '',
     description: '',
     category: 'Logistics',
     priority: 'High',
-    assignee: 'Dr. Sharma (Faculty Advisor)',
+    assignee: coordinatorAssignee,
     dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
     status: 'pending'
   });
@@ -121,7 +123,7 @@ export function Tasks() {
       description: '',
       category: 'Logistics',
       priority: 'High',
-      assignee: 'Dr. Sharma (Faculty Advisor)',
+      assignee: coordinatorAssignee,
       dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
       status: 'pending'
     });
@@ -502,7 +504,7 @@ export function Tasks() {
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 pt-1">
                       <span className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-gray-400" />
-                        <span className="font-medium text-gray-700">{task.assignee || 'Dr. Sharma & Aarav'}</span>
+                        <span className="font-medium text-gray-700">{task.assignee || coordinatorAssignee}</span>
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Calendar className="w-3.5 h-3.5 text-gray-400" />
@@ -795,7 +797,8 @@ export function Tasks() {
                     onChange={e => setTaskForm({ ...taskForm, assignee: e.target.value })}
                     className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                   >
-                    <option>Dr. Sharma (Faculty Advisor)</option>
+                    <option value={coordinatorAssignee}>{coordinatorAssignee}</option>
+                    <option>Dr. Kulvir Singh (Faculty Advisor)</option>
                     <option>Manav Sharma (Student Coordinator)</option>
                     <option>Aarav Patel (Technical Lead)</option>
                     <option>Neha Gupta (Event Manager)</option>
@@ -911,7 +914,8 @@ export function Tasks() {
                     onChange={e => setEditingTask({ ...editingTask, assignee: e.target.value })}
                     className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
                   >
-                    <option>Dr. Sharma (Faculty Advisor)</option>
+                    <option value={coordinatorAssignee}>{coordinatorAssignee}</option>
+                    <option>Dr. Kulvir Singh (Faculty Advisor)</option>
                     <option>Manav Sharma (Student Coordinator)</option>
                     <option>Aarav Patel (Technical Lead)</option>
                     <option>Neha Gupta (Event Manager)</option>

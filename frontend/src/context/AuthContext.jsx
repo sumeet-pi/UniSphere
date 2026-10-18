@@ -8,8 +8,10 @@ import {
   logout as logoutAction, 
   toggleRegisteredEvent, 
   toggleJoinedClub, 
-  updateUser 
+  updateUser,
+  updateUserProfile 
 } from '../store/slices/authSlice';
+
 
 const AuthContext = createContext();
 
@@ -80,6 +82,14 @@ export function AuthProvider({ children }) {
     dispatch(updateUser(updatedData));
   };
 
+  const updateProfile = async (updatedData) => {
+    const resultAction = await dispatch(updateUserProfile(updatedData));
+    if (updateUserProfile.fulfilled.match(resultAction)) {
+      return resultAction.payload;
+    }
+    throw new Error(resultAction.payload || 'Failed to update profile.');
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -90,6 +100,7 @@ export function AuthProvider({ children }) {
       registerCoordinator, 
       logout, 
       updateUser: updateProfileUser,
+      updateProfile,
       registeredEventIds, 
       registerForEvent, 
       unregisterFromEvent, 
@@ -98,6 +109,7 @@ export function AuthProvider({ children }) {
       toggleJoinClub, 
       isClubJoined 
     }}>
+
       {children}
     </AuthContext.Provider>
   );

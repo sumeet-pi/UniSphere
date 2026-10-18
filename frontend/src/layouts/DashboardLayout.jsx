@@ -18,12 +18,15 @@ import {
   User
 } from 'lucide-react';
 import { isCoordinatorRole, isStudentRole } from '../services/roles';
+import { useSelector } from 'react-redux';
 
 export function DashboardLayout() {
   const { user, loading, logout } = useAuth();
+  const reduxClub = useSelector((state) => state.clubs?.currentClub);
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
 
   const handleLogout = () => {
     logout();
@@ -135,14 +138,15 @@ export function DashboardLayout() {
         {isCoordinator && (
           <div className="px-5 py-2.5 bg-blue-50/60 border-b border-blue-100/70 flex items-center gap-2.5 flex-shrink-0">
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-xs">
-              {(user.clubName || 'Byte Warriors').charAt(0)}
+              {(user.clubName || reduxClub?.name || 'UniSphere Club').charAt(0)}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-gray-900 truncate">{user.clubName || 'Byte Warriors'}</p>
-              <p className="text-[10px] text-blue-700 font-medium truncate">{user.department || 'CSE Department'}</p>
+              <p className="text-xs font-bold text-gray-900 truncate">{user.clubName || reduxClub?.name || 'UniSphere Club'}</p>
+              <p className="text-[10px] text-blue-700 font-medium truncate">{user.department || reduxClub?.department || 'Department Leadership'}</p>
             </div>
           </div>
         )}
+
 
         {/* Navigation Links */}
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
@@ -179,10 +183,10 @@ export function DashboardLayout() {
             title="View Profile"
           >
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold flex-shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              {user.name.charAt(0)}
+              {(user.name || 'User').charAt(0)}
             </div>
             <div className="overflow-hidden min-w-0">
-              <p className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{user.name}</p>
+              <p className="text-sm font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{user.name || 'User'}</p>
               <p className="text-xs text-gray-500 truncate">{user.clubRole || user.role}</p>
             </div>
           </Link>

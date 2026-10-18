@@ -150,7 +150,7 @@ export function ClubDashboard() {
       category: taskCategory,
       status: 'pending',
       dueDate: taskDueDate || 'Next Week',
-      assignedTo: user?.name || activeFacultyAdvisor
+      assignedTo: user?.name || 'Club Coordinator'
     });
     setTasks(getStoredTasks(club.id));
     setTaskTitle('');
@@ -169,8 +169,9 @@ export function ClubDashboard() {
       category: noticeCategory,
       priority: noticePriority,
       targetAudience: noticeAudience,
-      author: `${user?.name || activeFacultyAdvisor} (${user?.role || 'Coordinator'})`
+      author: `${user?.name || 'Club Coordinator'} (${user?.clubRole || 'Club Coordinator'})`
     });
+
     setAnnouncementsList(getStoredAnnouncements(club.id));
     setNoticeTitle('');
     setNoticeContent('');
@@ -281,13 +282,14 @@ export function ClubDashboard() {
             </div>
             
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Welcome back, {user?.name || activeFacultyAdvisor}
+              Welcome back, {user?.name || 'Club Coordinator'}
             </h1>
             
             <p className="text-blue-100 text-sm sm:text-base leading-relaxed">
-              Department of <strong>{activeDepartment}</strong> • HOD: <strong>{activeHOD}</strong> • Faculty Advisor: <strong>{activeFacultyAdvisor}</strong>. 
+              Department of <strong>{activeDepartment}</strong> • HOD: <strong>{activeHOD}</strong> • Faculty Advisor: <strong>{activeFacultyAdvisor}</strong> • Coordinator: <strong>{user?.name || 'In-Charge'}</strong>. 
               Review zero-code student enrollment, manage real-time event lifecycles, and track departmental accreditation metrics.
             </p>
+
 
             <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-blue-200">
               <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-lg backdrop-blur-sm">
@@ -885,19 +887,34 @@ export function ClubDashboard() {
               </Link>
             </CardHeader>
             <CardContent className="pt-3 space-y-3">
-              {/* Faculty Advisor Leadership Banner */}
-              <div className="flex items-center justify-between p-3 bg-indigo-50/70 rounded-xl border border-indigo-100">
+              {/* Club Coordinator Leadership Banner */}
+              <div className="flex items-center justify-between p-3 bg-blue-50/70 rounded-xl border border-blue-200">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                    {(user?.name || 'C').charAt(0)}
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm text-gray-900">{user?.name || 'Club Coordinator'}</p>
+                    <p className="text-xs text-blue-700 font-semibold">{user?.clubRole || 'Club Coordinator'}</p>
+                  </div>
+                </div>
+                <Badge variant="blue" className="text-[10px]">Coordinator In-Charge</Badge>
+              </div>
+
+              {/* Faculty Advisor Leadership Banner */}
+              <div className="flex items-center justify-between p-3 bg-purple-50/70 rounded-xl border border-purple-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
                     {activeFacultyAdvisor ? activeFacultyAdvisor.charAt(0) : 'D'}
                   </div>
                   <div>
                     <p className="font-bold text-sm text-gray-900">{activeFacultyAdvisor}</p>
-                    <p className="text-xs text-indigo-700 font-semibold">Faculty Advisor</p>
+                    <p className="text-xs text-purple-700 font-semibold">Faculty Advisor</p>
                   </div>
                 </div>
-                <Badge variant="blue" className="text-[10px]">Staff Lead</Badge>
+                <Badge variant="purple" className="text-[10px]">Academic Mentor</Badge>
               </div>
+
 
               {/* Student Coordinators List */}
               <div className="space-y-2 mt-2">

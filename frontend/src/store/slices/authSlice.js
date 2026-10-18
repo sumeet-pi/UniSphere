@@ -119,7 +119,31 @@ export const registerCoordinatorAccount = createAsyncThunk(
   }
 );
 
+export const updateUserProfile = createAsyncThunk(
+  'auth/updateUserProfile',
+  async (userData, { rejectWithValue }) => {
+    try {
+      const res = await api.updateMe(userData);
+      const updatedUser = res.user || res;
+      const canonicalRole = normalizeRole(updatedUser.role);
+      const normalizedUser = {
+        ...updatedUser,
+        role: canonicalRole || updatedUser.role,
+      };
+
+      localStorage.setItem('unisphere_user', JSON.stringify(normalizedUser));
+      notify.success('Coordinator profile updated successfully!');
+      return normalizedUser;
+    } catch (err) {
+      const msg = normalizeApiError(err);
+      notify.error(msg);
+      return rejectWithValue(msg);
+    }
+  }
+);
+
 const initialState = {
+
   user: getStoredUser(),
   token: getStoredToken(),
   isAuthenticated: !!getStoredToken(),
@@ -260,9 +284,28 @@ export const authSlice = createSlice({
       .addCase(signupUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+
+      // updateUserProfile
+      .addCase(updateUserProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = {
+          ...state.user,
+          ...action.payload,
+        };
+        state.error = null;
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
+
 
 export const { 
   logout, 

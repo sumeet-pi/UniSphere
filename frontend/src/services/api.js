@@ -197,6 +197,25 @@ export const api = {
     }
   },
 
+  updateMe: async (userData) => {
+    try {
+      const res = await request('/api/v1/auth/me', {
+        method: 'PUT',
+        body: JSON.stringify(userData),
+      });
+      return res.user || res;
+    } catch (e) {
+      if (e.status === 404) {
+        return request('/api/auth/me', {
+          method: 'PUT',
+          body: JSON.stringify(userData),
+        });
+      }
+      throw e;
+    }
+  },
+
+
   // 2. Student Profile & Search
   getStudentProfile: () => request('/api/v1/students/me', { method: 'GET' }),
   updateStudentProfile: (profileData) => request('/api/v1/students/me', { method: 'PUT', body: JSON.stringify(profileData) }),

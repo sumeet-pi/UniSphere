@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../context/AuthContext';
+import { fetchClubById } from '../../store/slices/clubsSlice';
 import { 
   getStoredEvents, 
   getStoredMembers, 
@@ -37,8 +39,18 @@ import { Link } from 'react-router-dom';
 
 export function Analytics() {
   const { user } = useAuth();
+  const dispatch = useDispatch();
+  const reduxClub = useSelector((state) => state.clubs?.currentClub);
   const clubId = user?.clubId || user?.managedClubId || 'c1';
   const club = clubs.find(c => c.id === clubId) || clubs[0];
+
+  useEffect(() => {
+    if (clubId && clubId !== 'c1') {
+      dispatch(fetchClubById(clubId));
+    }
+  }, [dispatch, clubId]);
+
+  const activeClubName = reduxClub?.name || user?.clubName || club.name;
 
   const [timeHorizon, setTimeHorizon] = useState('Current Semester (Spring 2026)');
   const [reportExported, setReportExported] = useState(false);
@@ -84,7 +96,7 @@ export function Analytics() {
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/15 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-blue-100">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              {club.name} • Performance Intelligence
+              {activeClubName} • Performance Intelligence
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Club Analytics & Engagement

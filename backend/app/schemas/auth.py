@@ -83,3 +83,11 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+class UserUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=150)
+    phone: str | None = None
+    email: EmailStr | None = None
+    avatarUrl: str | None = None
+

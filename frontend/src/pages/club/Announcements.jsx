@@ -53,7 +53,7 @@ export function Announcements() {
     category: 'Event Alert',
     priority: 'Normal',
     audience: 'All Campus Students',
-    author: user?.name ? `${user.name} (Faculty Advisor)` : 'Dr. Sharma (Faculty Advisor)',
+    author: user?.name ? `${user.name} (${user?.clubRole || 'Club Coordinator'})` : 'Dr. Vijay Samyal (Club Coordinator)',
     content: ''
   });
 
@@ -87,9 +87,10 @@ export function Announcements() {
       category: 'Event Alert',
       priority: 'Normal',
       audience: 'All Campus Students',
-      author: user?.name ? `${user.name} (Faculty Advisor)` : 'Dr. Sharma (Faculty Advisor)',
+      author: user?.name ? `${user.name} (${user?.clubRole || 'Club Coordinator'})` : 'Dr. Vijay Samyal (Club Coordinator)',
       content: ''
     });
+
     setShowForm(false);
     showToast('✓ Announcement broadcasted live across the campus feed!');
   };
@@ -389,7 +390,7 @@ export function Announcements() {
                         <Calendar className="w-3.5 h-3.5 text-gray-400" /> Published on {a.date}
                       </span>
                       <span className="flex items-center gap-1">
-                        <User className="w-3.5 h-3.5 text-gray-400" /> By {a.author || 'Dr. Sharma (Faculty Advisor)'}
+                        <User className="w-3.5 h-3.5 text-gray-400" /> By {a.author || (user?.name ? `${user.name} (${user.clubRole || 'Club Coordinator'})` : 'Dr. Vijay Samyal (Club Coordinator)')}
                       </span>
                       <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">
                         Audience: {a.audience || 'All Campus Students'}
@@ -537,7 +538,10 @@ export function Announcements() {
                   onChange={e => setFormData({ ...formData, author: e.target.value })}
                   className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                 >
-                  <option>Dr. Sharma (Faculty Advisor)</option>
+                  <option value={user?.name ? `${user.name} (${user.clubRole || 'Club Coordinator'})` : 'Dr. Vijay Samyal (Club Coordinator)'}>
+                    {user?.name ? `${user.name} (${user.clubRole || 'Club Coordinator'})` : 'Dr. Vijay Samyal (Club Coordinator)'}
+                  </option>
+                  <option>Dr. Kulvir Singh (Faculty Advisor)</option>
                   <option>Manav Sharma (Student Coordinator)</option>
                   <option>Aarav Patel (Technical Lead)</option>
                   <option>Neha Gupta (Event Manager)</option>

@@ -18,7 +18,9 @@ from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
     UserResponse,
+    UserUpdateRequest,
 )
+
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -308,3 +310,44 @@ def get_me(
     db: Session = Depends(get_db),
 ):
     return _user_to_response(user, db)
+
+
+@router.put("/me", response_model=UserResponse)
+def update_me(
+    req: UserUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if req.name is not None:
+        trimmed = req.name.strip()
+        if len(trimmed) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={"code": "VALIDATION_ERROR", "message": "Name must be at least 2 characters long."},
+            )
+        user.name = trimmed
+
+    if req.phone is not None:
+        user.phone = req.phone.strip() if req.phone else None
+
+    if req.avatarUrl is not None:
+        user.avatar_url = req.avatarUrl.strip() if req.avatarUrl else None
+
+    if req.email is not None:
+        clean_email = req.email.strip().lower()
+        if clean_email != user.email.lower():
+            existing = db.query(User).filter(
+                User.email.ilike(clean_email),
+                User.id != user.id,
+            ).first()
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={"code": "EMAIL_ALREADY_EXISTS", "message": "An account with this email address already exists."},
+                )
+            user.email = clean_email
+
+    db.commit()
+    db.refresh(user)
+    return _user_to_response(user, db)
+

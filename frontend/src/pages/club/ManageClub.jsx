@@ -81,7 +81,7 @@ const LOGO_PRESETS = [
 
 export function ManageClub() {
   const dispatch = useDispatch();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const clubId = user?.clubId || user?.managedClubId || 'c1';
   const baseClub = clubs.find(c => c.id === clubId) || clubs[0];
 
@@ -89,7 +89,7 @@ export function ManageClub() {
   const clubMembersState = useSelector((state) => state.members.byClubId[clubId]);
   const liveMemberCount = clubMembersState?.totalMembers;
 
-  // Initialize initial profile data merging baseClub with signup user information
+  // Initialize initial profile data merging baseClub with authenticated user information
   const getInitialClubData = () => {
     try {
       const stored = localStorage.getItem(`mockClubProfile_${clubId}`);
@@ -97,6 +97,9 @@ export function ManageClub() {
         const parsed = JSON.parse(stored);
         return {
           ...parsed,
+          coordinatorName: user?.name || '',
+          coordinatorPhone: user?.phone || '',
+          coordinatorEmail: user?.email || '',
           clubCode: parsed.clubCode || parsed.inviteCode || 'BW-CSE-2026',
           facultyAdvisor: parsed.facultyAdvisor || parsed.coordinatorTeacher || parsed.facultyHead || 'Dr. Sharma'
         };
@@ -110,6 +113,9 @@ export function ManageClub() {
 
     return {
       id: baseClub.id,
+      coordinatorName: user?.name || '',
+      coordinatorPhone: user?.phone || '',
+      coordinatorEmail: user?.email || '',
       name: user?.clubName || baseClub.name || 'Byte Warriors',
       category: user?.category || baseClub.category || 'Technical & Coding',
       department: user?.department || 'Computer Science & Engineering',
@@ -117,8 +123,8 @@ export function ManageClub() {
       facultyAdvisor: initialAdvisor,
       coordinatorTeacher: initialAdvisor,
       facultyHead: initialAdvisor,
-      phone: user?.phone || '+91 98101 23456',
-      email: user?.email || 'bytewarriors@college.edu',
+      phone: baseClub.phone || '+91 98101 23456',
+      email: baseClub.email || 'bytewarriors@college.edu',
       clubCode: initialCode,
       status: 'Approved Institutional Charter',
       memberCount: baseClub.memberCount || 128,
@@ -141,7 +147,9 @@ export function ManageClub() {
   const [clubData, setClubData] = useState(getInitialClubData);
   const [formData, setFormData] = useState(getInitialClubData);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState(null);
   const [copiedCode, setCopiedCode] = useState(false);
 
   // New team member modal / inline input state
@@ -165,41 +173,82 @@ export function ManageClub() {
       setClubData(prev => ({
         ...prev,
         ...reduxClub,
+        coordinatorName: user?.name || prev.coordinatorName,
+        coordinatorPhone: user?.phone || prev.coordinatorPhone,
+        coordinatorEmail: user?.email || prev.coordinatorEmail,
         memberCount: liveMemberCount !== undefined ? liveMemberCount : (reduxClub.memberCount || prev.memberCount)
       }));
     } else if (liveMemberCount !== undefined) {
       setClubData(prev => ({ ...prev, memberCount: liveMemberCount }));
     }
-  }, [reduxClub, liveMemberCount]);
+  }, [reduxClub, liveMemberCount, user]);
 
   // Sync formData whenever editing is toggled on
   const handleStartEdit = () => {
-    setFormData(JSON.parse(JSON.stringify(clubData)));
+    setFormData({
+      ...clubData,
+      coordinatorName: user?.name || '',
+      coordinatorPhone: user?.phone || '',
+      coordinatorEmail: user?.email || '',
+    });
+    setSaveError(null);
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
     setFormData(JSON.parse(JSON.stringify(clubData)));
+    setSaveError(null);
     setIsEditing(false);
     setShowAddMember(false);
   };
 
   const handleSave = async () => {
-    // Keep clubCode and legacy inviteCode in sync
-    const normalized = {
-      ...formData,
-      inviteCode: formData.clubCode || formData.inviteCode || 'BW-CSE-2026',
-      coordinatorTeacher: formData.facultyAdvisor || formData.coordinatorTeacher
-    };
-    setClubData(normalized);
-    
-    // Dispatch to Redux store (persists to backend database and updates auth spotlight)
-    await dispatch(updateClubProfile({ clubId, clubData: normalized }));
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      // 1. Update coordinator personal profile if modified
+      const coordNameChanged = formData.coordinatorName && formData.coordinatorName.trim() !== user?.name;
+      const coordPhoneChanged = formData.coordinatorPhone !== undefined && formData.coordinatorPhone.trim() !== (user?.phone || '');
+      const coordEmailChanged = formData.coordinatorEmail && formData.coordinatorEmail.trim().toLowerCase() !== user?.email?.toLowerCase();
 
-    setIsEditing(false);
-    setShowAddMember(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3500);
+      if (coordNameChanged || coordPhoneChanged || coordEmailChanged) {
+        await updateProfile({
+          name: formData.coordinatorName?.trim(),
+          phone: formData.coordinatorPhone?.trim(),
+          email: formData.coordinatorEmail?.trim().toLowerCase(),
+        });
+      }
+
+      // 2. Keep clubCode and legacy inviteCode in sync
+      const normalized = {
+        ...formData,
+        inviteCode: formData.clubCode || formData.inviteCode || 'BW-CSE-2026',
+        coordinatorTeacher: formData.facultyAdvisor || formData.coordinatorTeacher
+      };
+      
+      // Dispatch to Redux store (persists to backend database and updates auth spotlight)
+      const clubResult = await dispatch(updateClubProfile({ clubId, clubData: normalized }));
+      if (updateClubProfile.rejected.match(clubResult)) {
+        throw new Error(clubResult.payload || 'Failed to update club profile.');
+      }
+
+      setClubData(prev => ({
+        ...prev,
+        ...normalized,
+        coordinatorName: formData.coordinatorName?.trim() || prev.coordinatorName,
+        coordinatorPhone: formData.coordinatorPhone?.trim() || prev.coordinatorPhone,
+        coordinatorEmail: formData.coordinatorEmail?.trim().toLowerCase() || prev.coordinatorEmail,
+      }));
+
+      setIsEditing(false);
+      setShowAddMember(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3500);
+    } catch (err) {
+      setSaveError(err.message || 'An error occurred while saving.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCopyCode = () => {
@@ -207,6 +256,7 @@ export function ManageClub() {
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
+
 
   const handleAddTeamMember = async () => {
     if (!newMember.name.trim() || !newMember.role.trim()) return;
@@ -324,6 +374,25 @@ export function ManageClub() {
           </button>
         </div>
       )}
+
+      {/* Error Banner */}
+      {saveError && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-900 p-4 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-5 h-5 text-rose-600" />
+            </div>
+            <div>
+              <p className="font-bold text-sm">Failed to Save Profile</p>
+              <p className="text-xs text-rose-700">{saveError}</p>
+            </div>
+          </div>
+          <button onClick={() => setSaveError(null)} className="text-rose-700 hover:text-rose-900 p-1">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
 
       {/* Hero Showcase Banner */}
       <div className="relative h-60 sm:h-64 rounded-3xl overflow-hidden shadow-md border border-gray-200 group bg-gray-900">
@@ -456,6 +525,60 @@ export function ManageClub() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* 1. Authenticated Coordinator Account */}
+                <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200/80 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-blue-900 uppercase tracking-wider block">Club Coordinator (In-Charge)</span>
+                    <Badge variant="blue">Logged In</Badge>
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    {user?.name || clubData.coordinatorName || 'Dr. Vijay Samyal'}
+                  </p>
+                  <p className="text-[11px] text-blue-700 font-medium">Designated Lead • {user?.clubRole || 'Club Coordinator'}</p>
+                </div>
+
+                {/* 2. Coordinator Personal Phone */}
+                <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200/80 space-y-1">
+                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wider block">Coordinator Personal Phone</span>
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2 font-mono">
+                    <Phone className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    {user?.phone || 'Not configured'}
+                  </p>
+                  <p className="text-[11px] text-blue-700 font-medium">Direct personal phone line for alerts</p>
+                </div>
+
+                {/* 3. Coordinator Personal Login Email */}
+                <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200/80 space-y-1">
+                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wider block">Coordinator Account Email</span>
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2 truncate">
+                    <Mail className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    <span className="truncate">{user?.email || 'Not configured'}</span>
+                  </p>
+                  <p className="text-[11px] text-blue-700 font-medium">Coordinator authenticated session email</p>
+                </div>
+
+                {/* 4. Faculty Advisor */}
+                <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-1">
+                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Faculty Advisor</span>
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                    {activeFacultyAdvisor}
+                  </p>
+                  <p className="text-[11px] text-gray-500">Designated Department Faculty Mentor</p>
+                </div>
+
+                {/* 5. Head of Department */}
+                <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-1">
+                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Head of Department (HOD)</span>
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                    {clubData.hod}
+                  </p>
+                  <p className="text-[11px] text-gray-500">Departmental Authority & Endorsement</p>
+                </div>
+
+                {/* 6. Parent Department */}
                 <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-1">
                   <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Parent Academic Department</span>
                   <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -465,42 +588,27 @@ export function ManageClub() {
                   <p className="text-[11px] text-gray-500">Approved academic parent wing</p>
                 </div>
 
+                {/* 7. Official Club Contact Email */}
                 <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-1">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Head of Department (HOD)</span>
-                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-indigo-600 flex-shrink-0" />
-                    {clubData.hod}
+                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Official Club / Contact Email</span>
+                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2 truncate">
+                    <Mail className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                    <span className="truncate">{clubData.email}</span>
                   </p>
-                  <p className="text-[11px] text-gray-500">Departmental Authority & Endorsement</p>
+                  <p className="text-[11px] text-gray-500">Public university society mailbox</p>
                 </div>
 
+                {/* 8. Club Office Phone */}
                 <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-1">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Faculty Advisor</span>
-                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                    <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                    {activeFacultyAdvisor}
-                  </p>
-                  <p className="text-[11px] text-gray-500">Designated Department Faculty</p>
-                </div>
-
-                <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-1">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Coordinator Contact Phone</span>
+                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Official Club Office Phone</span>
                   <p className="text-sm font-bold text-gray-900 flex items-center gap-2 font-mono">
                     <Phone className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                     {clubData.phone}
                   </p>
-                  <p className="text-[11px] text-gray-500">For administrative queries & SMS alerts</p>
+                  <p className="text-[11px] text-gray-500">Public inquiries & administrative desk</p>
                 </div>
 
-                <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-1">
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Official Club / Contact Email</span>
-                  <p className="text-sm font-bold text-gray-900 flex items-center gap-2 truncate">
-                    <Mail className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                    <span className="truncate">{clubData.email}</span>
-                  </p>
-                  <p className="text-[11px] text-gray-500">University domain mailbox</p>
-                </div>
-
+                {/* 9. Unique Club Code */}
                 <div className="bg-gray-50/80 p-4 rounded-xl border border-gray-100 space-y-1">
                   <span className="text-xs font-medium text-gray-400 uppercase tracking-wider block">Unique Club Code</span>
                   <p className="text-sm font-bold text-indigo-700 flex items-center gap-2 font-mono">
@@ -511,6 +619,7 @@ export function ManageClub() {
                 </div>
               </div>
             </CardContent>
+
           </Card>
 
           {/* Section 2: Meeting Logistics & Campus Location */}
@@ -615,17 +724,34 @@ export function ManageClub() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Club Coordinator card */}
+                <div className="bg-gradient-to-b from-blue-50/70 to-indigo-50/40 p-4 rounded-xl border border-blue-200 text-center shadow-2xs">
+                  <div className="w-12 h-12 rounded-full bg-blue-600 text-white font-bold text-base flex items-center justify-center mx-auto mb-2 shadow-xs">
+                    {(user?.name || clubData.coordinatorName || 'C').charAt(0)}
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-sm truncate" title={user?.name || clubData.coordinatorName}>
+                    {user?.name || clubData.coordinatorName || 'Club Coordinator'}
+                  </h3>
+                  <p className="text-xs text-blue-700 font-semibold">{user?.clubRole || 'Club Coordinator'}</p>
+                  <span className="inline-block px-2 py-0.5 bg-blue-100/80 text-blue-800 text-[10px] font-bold rounded-full mt-2">
+                    In-Charge
+                  </span>
+                </div>
+
                 {/* Faculty Advisor card */}
-                <div className="bg-gradient-to-b from-indigo-50/70 to-blue-50/40 p-4 rounded-xl border border-indigo-100 text-center">
-                  <div className="w-12 h-12 rounded-full bg-indigo-600 text-white font-bold text-base flex items-center justify-center mx-auto mb-2 shadow-xs">
+                <div className="bg-gradient-to-b from-purple-50/70 to-indigo-50/40 p-4 rounded-xl border border-purple-200 text-center shadow-2xs">
+                  <div className="w-12 h-12 rounded-full bg-purple-600 text-white font-bold text-base flex items-center justify-center mx-auto mb-2 shadow-xs">
                     {(activeFacultyAdvisor).charAt(0)}
                   </div>
-                  <h3 className="font-bold text-gray-900 text-sm">{activeFacultyAdvisor}</h3>
-                  <p className="text-xs text-indigo-700 font-semibold">Faculty Advisor</p>
-                  <span className="inline-block px-2 py-0.5 bg-indigo-100/80 text-indigo-800 text-[10px] font-bold rounded-full mt-2">
+                  <h3 className="font-bold text-gray-900 text-sm truncate" title={activeFacultyAdvisor}>
+                    {activeFacultyAdvisor}
+                  </h3>
+                  <p className="text-xs text-purple-700 font-semibold">Faculty Advisor</p>
+                  <span className="inline-block px-2 py-0.5 bg-purple-100/80 text-purple-800 text-[10px] font-bold rounded-full mt-2">
                     {clubData.department.split('&')[0]}
                   </span>
                 </div>
+
 
                 {/* Student members */}
                 {clubData.coreTeam && clubData.coreTeam.map(member => (
@@ -670,7 +796,55 @@ export function ManageClub() {
             </div>
           </div>
 
-          {/* Form Card 1: Identity & Categorization */}
+          {/* Form Card 1: Coordinator Personal Profile (Authenticated User Account) */}
+          <Card className="border-blue-200 shadow-2xs bg-gradient-to-r from-blue-50/30 to-indigo-50/20">
+            <CardHeader className="border-b border-blue-100 bg-blue-50/60 py-4 px-6 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-blue-600" />
+                <h2 className="text-base font-bold text-gray-900">Coordinator Personal Profile</h2>
+              </div>
+              <Badge variant="blue">Authenticated User Identity</Badge>
+            </CardHeader>
+            <CardContent className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <Input 
+                    label="Coordinator Full Name" 
+                    value={formData.coordinatorName || ''}
+                    onChange={e => setFormData({ ...formData, coordinatorName: e.target.value })}
+                    placeholder="e.g. Dr. Vijay Samyal"
+                    required
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">Displayed in sidebar, dashboard greeting & signatures</p>
+                </div>
+
+                <div>
+                  <Input 
+                    label="Coordinator Personal Contact Phone" 
+                    value={formData.coordinatorPhone || ''}
+                    onChange={e => setFormData({ ...formData, coordinatorPhone: e.target.value })}
+                    placeholder="e.g. +91 98101 23456"
+                    required
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">Direct personal mobile line for administrative alerts</p>
+                </div>
+
+                <div>
+                  <Input 
+                    label="Coordinator Account Email" 
+                    type="email"
+                    value={formData.coordinatorEmail || ''}
+                    onChange={e => setFormData({ ...formData, coordinatorEmail: e.target.value })}
+                    placeholder="e.g. coordinator@college.edu"
+                    required
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">Personal login email (must remain unique)</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Form Card 2: Basic Club Identity & Category */}
           <Card className="border-gray-200 shadow-2xs">
             <CardHeader className="border-b border-gray-100 bg-gray-50/70 py-4 px-6 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -744,12 +918,12 @@ export function ManageClub() {
             </CardContent>
           </Card>
 
-          {/* Form Card 2: Departmental & Institutional Leadership (Signup Details) */}
+          {/* Form Card 3: Departmental & Institutional Leadership */}
           <Card className="border-gray-200 shadow-2xs">
             <CardHeader className="border-b border-gray-100 bg-gray-50/70 py-4 px-6 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-indigo-600" />
-                <h2 className="text-base font-bold text-gray-900">Institutional Governance & Authority</h2>
+                <h2 className="text-base font-bold text-gray-900">Institutional Governance & Public Contacts</h2>
               </div>
               <Badge variant="blue">Audited College Credentials</Badge>
             </CardHeader>
@@ -774,12 +948,12 @@ export function ManageClub() {
                   label="Head of Department (HOD)" 
                   value={formData.hod}
                   onChange={e => setFormData({ ...formData, hod: e.target.value })}
-                  placeholder="e.g. Dr. V. K. Mathur"
+                  placeholder="e.g. Dr. Sonia Sharma"
                   required
                 />
 
                 <Input 
-                  label="Faculty Advisor" 
+                  label="Designated Faculty Advisor" 
                   value={formData.facultyAdvisor || formData.coordinatorTeacher || formData.facultyHead}
                   onChange={e => setFormData({ 
                     ...formData, 
@@ -787,12 +961,12 @@ export function ManageClub() {
                     coordinatorTeacher: e.target.value,
                     facultyHead: e.target.value 
                   })}
-                  placeholder="e.g. Dr. Sharma / Dr. Neha Verma"
+                  placeholder="e.g. Dr. Kulvir Singh"
                   required
                 />
 
                 <Input 
-                  label="Coordinator Contact Phone" 
+                  label="Official Club Office Phone" 
                   value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="e.g. +91 98101 23456"
@@ -800,7 +974,7 @@ export function ManageClub() {
                 />
 
                 <Input 
-                  label="Official Club / Contact Email" 
+                  label="Official Club / Public Email" 
                   type="email"
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
@@ -810,6 +984,7 @@ export function ManageClub() {
               </div>
             </CardContent>
           </Card>
+
 
           {/* Form Card 3: Operations & Meetings (Public Profile Details) */}
           <Card className="border-gray-200 shadow-2xs">
